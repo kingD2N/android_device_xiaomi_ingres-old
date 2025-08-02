@@ -27,3 +27,6 @@ PRODUCT_SYSTEM_DEVICE := ingres
 BUILD_FINGERPRINT := Xiaomi/ingres_global/ingres:14/UKQ1.230917.001/V816.0.5.0.ULJMIXM:user/release-keys
 
 PRODUCT_GMS_CLIENTID_BASE := android-xiaomi
+
+# Include enviroment variables makefile
+include device/xiaomi/ingres/enviroment.mk

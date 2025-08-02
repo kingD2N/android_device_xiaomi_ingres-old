@@ -11,7 +11,7 @@ include device/xiaomi/sm8450-common/BoardConfigCommon.mk
 include vendor/xiaomi/ingres/BoardConfigVendor.mk
 
 # Inherit from proprietary files for miuicamera
--include device/xiaomi/miuicamera-ingres/BoardConfig.mk
+# -include device/xiaomi/miuicamera-ingres/BoardConfig.mk
 
 BUILD_BROKEN_DUP_RULES := true
 BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
@@ -21,7 +21,7 @@ DEVICE_PATH := device/xiaomi/ingres
 KERNEL_PATH := device/xiaomi/ingres-kernel
 
 # Camera - Miui
-TARGET_CAMERA_PACKAGE_NAME := com.android.camera
+# TARGET_CAMERA_PACKAGE_NAME := com.android.camera
 
 # Kernel prebuilt
 BOARD_USES_DT := true
@@ -49,7 +49,7 @@ BOARD_VENDOR_RAMDISK_KERNEL_MODULES_BLOCKLIST_FILE := $(RAMDISK_MODULES_PATH)/mo
 
 PRODUCT_COPY_FILES += \
     $(call find-copy-subdir-files,*,$(KERNEL_PATH)/vendor_dlkm/,$(TARGET_COPY_OUT_VENDOR_DLKM)/lib/modules) \
-    $(call find-copy-subdir-files,*,$(KERNEL_PATH)/vendor_ramdisk/,$(TARGET_COPY_OUT_VENDOR_RAMDISK)/lib/modules)  
+    $(call find-copy-subdir-files,*,$(KERNEL_PATH)/vendor_ramdisk/,$(TARGET_COPY_OUT_VENDOR_RAMDISK)/lib/modules)
 
 # Properties
 TARGET_SYSTEM_PROP += $(DEVICE_PATH)/properties/system.prop
@@ -59,7 +59,10 @@ TARGET_VENDOR_PROP += $(DEVICE_PATH)/properties/vendor.prop
 TARGET_SCREEN_DENSITY := 395
 
 # Permissive
-#BOARD_BOOTCONFIG += androidboot.selinux=permissive
+BOARD_BOOTCONFIG += androidboot.selinux=permissive
 
 # Capacity mAh
 BOARD_BATTERY_CAPACITY := 4700
+
+# Audio
+AUDIO_FEATURE_ENABLED_ULTRASOUND_PROXIMITY := true
