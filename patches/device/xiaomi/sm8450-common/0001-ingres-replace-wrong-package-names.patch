@@ -1,0 +1,34 @@
+From 0802e9cb2a18a35d69431c984d67596faf5c4998 Mon Sep 17 00:00:00 2001
+From: n08i40k <nhomcencko1@gmail.com>
+Date: Mon, 18 Aug 2025 15:16:27 +0000
+Subject: [PATCH] ingres: replace wrong package names
+
+---
+ common.mk | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/common.mk b/common.mk
+index d2f7148..c2fa16d 100644
+--- a/common.mk
++++ b/common.mk
+@@ -214,7 +214,7 @@ PRODUCT_PACKAGES += \
+ 
+ # IR
+ PRODUCT_PACKAGES += \
+-    android.hardware.ir-service.xiaomi
++    android.hardware.ir-service.lineage
+ 
+ PRODUCT_COPY_FILES += \
+     frameworks/native/data/etc/android.hardware.consumerir.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.consumerir.xml
+@@ -390,7 +390,7 @@ PRODUCT_PACKAGES += \
+ 
+ # Touchscreen
+ PRODUCT_PACKAGES += \
+-    vendor.lineage.touch@1.0-service.xiaomi
++    vendor.lineage.touch-service.xiaomi
+ 
+ $(call soong_config_set, XIAOMI_TOUCH, HIGH_TOUCH_POLLING_PATH, /sys/devices/virtual/touch/touch_dev/bump_sample_rate)
+ 
+-- 
+2.43.0
+

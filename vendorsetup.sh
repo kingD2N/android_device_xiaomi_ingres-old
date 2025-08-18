@@ -16,3 +16,9 @@ echo 'Cloning Kernel stuff'
 git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450.git -b lineage-22.2 kernel/xiaomi/sm8450
 git clone https://github.com/cupid-development/android_kernel_xiaomi_sm8450-modules.git -b lineage-22.2 kernel/xiaomi/sm8450-modules
 git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450-devicetrees.git -b lineage-22.2 kernel/xiaomi/sm8450-devicetrees
+
+echo 'Applying patches to device/xiaomi/sm8450-common'
+{
+	cd device/xiaomi/sm8450-common/
+	git am --3way ../ingres/patches/device/xiaomi/sm8450-common/*.patch
+}
