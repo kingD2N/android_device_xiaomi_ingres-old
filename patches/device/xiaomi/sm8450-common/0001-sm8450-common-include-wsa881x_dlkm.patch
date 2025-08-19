@@ -1,0 +1,24 @@
+From 20b002f4d451bf266c8c861f380ff707646e82b1 Mon Sep 17 00:00:00 2001
+From: ParsaAslaniYC <parsaaslani.67@gmail.com>
+Date: Tue, 19 Aug 2025 07:16:50 -0400
+Subject: [PATCH] sm8450-common: include wsa881x_dlkm
+
+---
+ modules.list.vendor_dlkm | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/modules.list.vendor_dlkm b/modules.list.vendor_dlkm
+index 5e86b2d..b278471 100644
+--- a/modules.list.vendor_dlkm
++++ b/modules.list.vendor_dlkm
+@@ -19,6 +19,7 @@ lpass_cdc_rx_macro_dlkm.ko
+ lpass_cdc_tx_macro_dlkm.ko
+ lpass_cdc_dlkm.ko
+ wsa883x_dlkm.ko
++wsa881x_dlkm.ko
+ wcd938x_dlkm.ko
+ wcd938x_slave_dlkm.ko
+ cs35l41_dlkm.ko
+-- 
+2.49.0
+
