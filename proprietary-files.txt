@@ -84,6 +84,9 @@ vendor/lib/rfsa/adsp/misound_res_headphone.bin
 vendor/lib/rfsa/adsp/misound_res_spk.bin
 vendor/lib/rfsa/adsp/misound_res_spk4ch.bin
 
+# Audio policy
+vendor/etc/seccomp_policy/c2audio.vendor.base-arm64.policy
+
 # Audio configs
 vendor/etc/audio/sku_taro/mixer_paths_overlay_dynamic.xml
 vendor/etc/audio/sku_taro/mixer_paths_overlay_static.xml
@@ -1060,4 +1063,5 @@ vendor/firmware/vpu20_4v.mdt
 # MISC
 vendor/lib64/libwa_rtdof.so
 vendor/lib64/libwa_refocus.so
+
 vendor/lib64/libwa_depth.so
