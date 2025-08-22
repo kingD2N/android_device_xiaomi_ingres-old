@@ -17,6 +17,21 @@ git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450.git -b l
 git clone https://github.com/LineageOS/android_kernel_xiaomi_sm8450-modules.git -b lineage-22.2 kernel/xiaomi/sm8450-modules
 git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450-devicetrees.git -b lineage-22.2 kernel/xiaomi/sm8450-devicetrees
 
+if [ "$1" == "--force" ]; then
+	echo 'WARNING: You specified "--force" argument!'
+	echo 'Repositories related to hardware will be force redownloaded!'
+	rm -rf hardware/qcom-caf/sm8450/audio/agm
+	rm -rf hardware/qcom-caf/sm8450/audio/primary-hal
+	rm -rf hardware/qcom-caf/sm8450/audio/pal
+	rm -rf hardware/qcom-caf/sm8450/audio/graphservices
+fi
+
+echo 'Cloning hardware stuff'
+git clone https://github.com/Ingres-Centre/android_vendor_qcom_opensource_agm -b lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/agm
+git clone https://github.com/Ingres-Centre/android_hardware_qcom_audio-ar -b lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/primary-hal
+git clone https://github.com/Ingres-Centre/android_vendor_qcom_opensource_arpal-lx -b lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
+git clone https://github.com/Ingres-Centre/android_vendor_qcom_opensource_audioreach-graphservices -b lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
+
 echo 'Looking for patch targets...'
 PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ | grep '.patch$' | awk '{ gsub(/([a-zA-Z0-9-_]+\.patch)/, ""); } NF && !seen[$0]++' | sed 's/device\/xiaomi\/ingres\/patches\///')"
 
