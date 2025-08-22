@@ -33,7 +33,7 @@ git clone https://github.com/Ingres-Centre/android_vendor_qcom_opensource_arpal-
 git clone https://github.com/Ingres-Centre/android_vendor_qcom_opensource_audioreach-graphservices -b lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
 
 echo 'Looking for patch targets...'
-PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ | grep '.patch$' | awk '{ gsub(/([a-zA-Z0-9-_]+\.patch)/, ""); } NF && !seen[$0]++' | sed 's/device\/xiaomi\/ingres\/patches\///')"
+PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ -type f \( -iname '*.patch' \) -exec dirname {} \; | sort -u | sed 's/device\/xiaomi\/ingres\/patches\///')"
 
 if [ "$1" == "--force" ]; then
 	echo "WARNING: The targets to which the patches will be applied will have a git reset performed."
