@@ -1,0 +1,24 @@
+From ed566b8d5f04443283efa781c56db6cb5fb12766 Mon Sep 17 00:00:00 2001
+From: n08i40k <nhomcencko1@gmail.com>
+Date: Fri, 22 Aug 2025 22:38:33 +0000
+Subject: [PATCH] ingres: remove duplicate package
+
+---
+ sm8450-common-vendor.mk | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/sm8450-common-vendor.mk b/sm8450-common-vendor.mk
+index a0a0654..4501110 100644
+--- a/sm8450-common-vendor.mk
++++ b/sm8450-common-vendor.mk
+@@ -894,7 +894,6 @@ PRODUCT_PACKAGES += \
+     sensors.qti \
+     shsusrd \
+     sscrpcd \
+-    ssgqmigd \
+     ssgtzd \
+     ssr_diag \
+     ssr_setup \
+-- 
+2.43.0
+
