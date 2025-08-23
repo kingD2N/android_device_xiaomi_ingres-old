@@ -7,7 +7,7 @@ echo 'Cloning sm8450-common'
 git clone https://github.com/LineageOS/android_device_xiaomi_sm8450-common.git -b lineage-22.2 device/xiaomi/sm8450-common
 
 echo 'Cloning vendor sm8450-common'
-git clone https://github.com/TheMuppets/proprietary_vendor_xiaomi_sm8450-common.git -b lineage-22.2 vendor/xiaomi/sm8450-common
+git clone https://github.com/Ingres-Centre/proprietary_vendor_xiaomi_sm8450-common.git -b 16 vendor/xiaomi/sm8450-common
 
 echo 'Cloning hardware xiaomi'
 git clone https://github.com/LineageOS/android_hardware_xiaomi -b lineage-22.2 hardware/xiaomi
