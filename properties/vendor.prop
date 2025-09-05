@@ -6,5 +6,4 @@ ro.vendor.sensors.notifier.light_sensors.primary=5,33171089
 
 # Fingerprint
 persist.vendor.fingerprint.type=side
-persist.vendor.fingerprint.sensor_location=1080|920|210|local:4630946370515662722,1080|920|210|local:4630946480857061762
-
+persist.vendor.fingerprint.sensor_location=1080|1000|200|local:4630946545580055169
