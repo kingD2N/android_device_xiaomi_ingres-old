@@ -13,8 +13,8 @@ echo 'Cloning hardware xiaomi'
 git clone https://github.com/LineageOS/android_hardware_xiaomi -b lineage-22.2 hardware/xiaomi
 
 echo 'Cloning Kernel stuff'
-git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450.git -b lineage-22.2 kernel/xiaomi/sm8450
-git clone https://github.com/LineageOS/android_kernel_xiaomi_sm8450-modules.git -b lineage-22.2 kernel/xiaomi/sm8450-modules
+git clone https://github.com/ingres-entre/android_kernel_xiaomi_sm8450.git -b lineage-22.2 kernel/xiaomi/sm8450
+git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450-modules.git -b lineage-22.2 kernel/xiaomi/sm8450-modules
 git clone https://github.com/ingres-centre/android_kernel_xiaomi_sm8450-devicetrees.git -b lineage-22.2 kernel/xiaomi/sm8450-devicetrees
 
 if [ "$1" == "--force" ]; then
