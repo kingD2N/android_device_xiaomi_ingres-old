@@ -68,6 +68,11 @@ clone-repo() {
         exit -1
     fi
 
+	if [ -e "$OUT/.lock-setup" ]; then
+	    echo "You have lock-file to prevent local changes overwrite! Skipping that repo..."
+	    return
+	fi
+
     REPO_URI="$1/$2"
     REPO_URL="https://github.com/$REPO_URI"
 
