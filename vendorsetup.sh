@@ -86,7 +86,7 @@ clone-repo() {
         REMOTE_URL="$(git remote get-url origin)"
         if [[ "$REMOTE_URL" != "$REPO_URL" ]]; then
             echo "Git remote url differs from required! Resetting..."
-            git remote set-url origin "$REPO_URL"
+            git remote set-url origin "$REPO_URL" || git remote add -t "$BRANCH" origin "$REPO_URL"
 
             RESET=1
         fi
