@@ -32,9 +32,9 @@ echo "Self-updating..."
         echo "device/xiaomi/ingres/vendorsetup.sh was updated! Rerunning..."
 
         if [ "$FORCE" -eq "1" ]; then 
-            device/xiaomi/ingres/vendorsetup.sh --force
+            bash device/xiaomi/ingres/vendorsetup.sh --force
         else
-            device/xiaomi/ingres/vendorsetup.sh
+            bash device/xiaomi/ingres/vendorsetup.sh
         fi
 
         exit 0
@@ -80,14 +80,8 @@ clone-repo() {
 
     echo "Cloning $REPO_URI [$BRANCH] to $OUT directory..."
     if test -d "$OUT/.git"; then
-        echo "Repository already clonned! Updating..."
+		echo "Repository already clonned! Updating..."
         cd "$OUT"
-
-        REMOTE="$(git remote)"
-        if [[ "$REMOTE" != "origin" ]]; then
-            error "Git remote isn't 'origin'! Terminating..."
-            exit -1
-        fi
 
         REMOTE_URL="$(git remote get-url origin)"
         if [[ "$REMOTE_URL" != "$REPO_URL" ]]; then
@@ -96,9 +90,9 @@ clone-repo() {
 
             RESET=1
         fi
-
+		
         git remote set-head origin "$BRANCH"
-        git pull
+        git pull origin
 
         echo "Existing repo pulled successfully!"
     else
