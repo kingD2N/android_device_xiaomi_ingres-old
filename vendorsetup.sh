@@ -2,7 +2,7 @@ echo 'Starting to clone stuffs needed to build for ingres'
 
 if [ -e ".lock-setup" ]; then
     echo "You have lock-file to prevent local changes overwrite! Exitting..."
-    exit 0
+    kill -INT $$
 fi
 
 CWD="$(realpath .)"
@@ -36,7 +36,7 @@ clone-repo() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
         error "Not all arguments provided!"
         error "Usage: clone-repo OWNER REPO_NAME BRANCH OUT_DIR"
-        exit -1
+        kill -INT $$
     fi
 
     OUT_LENGTH=${#OUT}
@@ -47,7 +47,7 @@ clone-repo() {
         error "Provided out directory path too short!"
         error "This check was made to prevent dangerous consequences in some branches if the function."
         error "Make sure you have specified the path to the output directory correctly."
-        exit -1
+        kill -INT $$
     fi
 
 	if [ -e "$OUT/.lock-setup" ]; then
@@ -89,7 +89,8 @@ clone-repo() {
 			echo "Curent status of the repo is: $STATUS"
 			echo "Expected status is: ## $BRANCH"
             echo "# Note: You can run 'device/xiaomi/ingres/vendorsetup.sh --force' to drop your local changes."
-            exit -1
+	    cd "$CWD"
+            kill -INT $$
         fi
 		
         git pull origin
