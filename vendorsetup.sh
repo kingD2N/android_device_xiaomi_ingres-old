@@ -15,34 +15,16 @@ else
 	FORCE=0
 fi
 
-echo "Self-updating..."
-{
-    cd device/xiaomi/ingres
-
-    OLD_SUM="$(sha1sum ./vendorsetup.sh)"
-    git pull
-	if [ "$FORCE" -eq 1 ]; then
-		git reset --hard origin
-	fi
-    NEW_SUM="$(sha1sum ./vendorsetup.sh)"
-
-    cd "$CWD"
-
-    if [[ "$OLD_SUM" != "$NEW_SUM" ]]; then
-        echo "device/xiaomi/ingres/vendorsetup.sh was updated! Rerunning..."
-
-        if [ "$FORCE" -eq "1" ]; then 
-            bash device/xiaomi/ingres/vendorsetup.sh --force
-        else
-            bash device/xiaomi/ingres/vendorsetup.sh
-        fi
-
-        exit 0
-    fi
-}
-
 error() {
     echo "$@" 1>&2;
+}
+
+reset() {
+    git remote remove origin 
+    git remote add -t "$1" origin "$2" -f
+    git reset --hard origin/$1
+    git pull
+    cd "$CWD"
 }
 
 clone-repo() {
@@ -76,22 +58,39 @@ clone-repo() {
     REPO_URI="$1/$2"
     REPO_URL="https://github.com/$REPO_URI"
 
-    RESET="$FORCE"
-
     echo "Cloning $REPO_URI [$BRANCH] to $OUT directory..."
+
     if test -d "$OUT/.git"; then
 		echo "Repository already clonned! Updating..."
         cd "$OUT"
 
+        if [ "$FORCE" -eq 1 ]; then
+            reset "$BRANCH" "$REPO_URL"
+            return
+        fi
+
+        REMOTE="$(git remote)"
+        if [[ "$REMOTE" != "origin" ]]; then
+            echo "Git remote isn't 'origin'! Resetting..."
+            reset "$BRANCH" "$REPO_URL"
+            return
+        fi
+
         REMOTE_URL="$(git remote get-url origin)"
         if [[ "$REMOTE_URL" != "$REPO_URL" ]]; then
             echo "Git remote url differs from required! Resetting..."
-            git remote set-url origin "$REPO_URL" || git remote add -t "$BRANCH" origin "$REPO_URL"
+            reset "$BRANCH" "$REPO_URL"
+            return
+        fi
 
-            RESET=1
+        STATUS="$(git status -sb | head -n 1)"
+        if [[ "$STATUS" != "## $BRANCH" ]]; then
+            echo "$STATUS"
+            echo "You have uncommited changes or using another branch! Terminating..."
+            echo "# Note: You can run 'device/xiaomi/ingres/vendorsetup.sh --force' to drop your local changes."
+            exit -1
         fi
 		
-        git remote set-head origin "$BRANCH"
         git pull origin
 
         echo "Existing repo pulled successfully!"
@@ -109,14 +108,6 @@ clone-repo() {
     fi
 
     cd "$CWD"
-    
-    if [ "$RESET" -eq 1 ]; then
-        echo "Performing 'git reset'..."
-
-        cd "$OUT"
-        git reset --hard origin
-        cd "$CWD"
-    fi
 }
 
 echo 'IMPORTANT WARNING: Generate the vendor yourself with OS2.0.4.0ULJCNMX (Redmi K50G Latest OS2 firmware. which is Chinese)'
