@@ -85,8 +85,9 @@ clone-repo() {
 
         STATUS="$(git status -sb | head -n 1)"
         if [[ "$STATUS" != "## $BRANCH" ]]; then
-            echo "$STATUS"
             echo "You have uncommited changes or using another branch! Terminating..."
+			echo "Curent status of the repo is: $STATUS"
+			echo "Expected status is: ## $BRANCH"
             echo "# Note: You can run 'device/xiaomi/ingres/vendorsetup.sh --force' to drop your local changes."
             exit -1
         fi
@@ -124,3 +125,27 @@ clone-repo Ingres-Centre    android_vendor_qcom_opensource_agm 	                
 clone-repo Ingres-Centre    android_hardware_qcom_audio-ar 	                        lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/primary-hal
 clone-repo Ingres-Centre    android_vendor_qcom_opensource_arpal-lx 	            lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
 clone-repo Ingres-Centre    android_vendor_qcom_opensource_audioreach-graphservices lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
+
+echo 'Looking for patch targets...'
+PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ -type f \( -iname '*.patch' \) -exec dirname {} \; | sort -u | sed 's/device\/xiaomi\/ingres\/patches\///')"
+
+if [ "$1" == "--force" ]; then
+	echo "WARNING: The targets to which the patches will be applied will have a git reset performed."
+fi
+
+for TARGET in $PATCH_TARGETS; do
+	BACK_PATH="$(echo $TARGET | sed -E 's/[a-zA-Z0-9_-]+/../g')"
+	echo Applying patches to $TARGET
+
+	cd "$TARGET"
+
+	if [ "$1" == "--force" ]; then
+		echo "Performing git reset..."
+		git fetch origin 1&>/dev/null
+		git reset --hard origin 1&>/dev/null
+		git clean -fd 1&>/dev/null
+	fi
+
+	git am --3way "$BACK_PATH/device/xiaomi/ingres/patches/$TARGET"/*.patch | grep 'Applying: '
+	cd "$BACK_PATH"
+done
