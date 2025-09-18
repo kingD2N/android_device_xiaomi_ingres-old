@@ -83,12 +83,6 @@ clone-repo() {
         echo "Repository already clonned! Updating..."
         cd "$OUT"
 
-        REMOTE="$(git remote)"
-        if [[ "$REMOTE" != "origin" ]]; then
-            error "Git remote isn't 'origin'! Terminating..."
-            exit -1
-        fi
-
         REMOTE_URL="$(git remote get-url origin)"
         if [[ "$REMOTE_URL" != "$REPO_URL" ]]; then
             echo "Git remote url differs from required! Resetting..."
@@ -96,9 +90,9 @@ clone-repo() {
 
             RESET=1
         fi
-
+		
         git remote set-head origin "$BRANCH"
-        git pull
+        git pull origin
 
         echo "Existing repo pulled successfully!"
     else
