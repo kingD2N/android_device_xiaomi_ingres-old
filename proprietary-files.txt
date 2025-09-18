@@ -127,7 +127,7 @@ vendor/lib/libagm_mixer_plugin.so
 vendor/lib/libagm_pcm_plugin.so
 vendor/lib/libagmclient.so
 vendor/lib/libagmmixer.so
-vendor/lib/vendor.qti.hardware.AGMIPC@1.0.so
+vendor/lib/vendor.qti.hardware.AGMIPC@1.0.so;MODULE_SUFFIX=_vendor
 vendor/lib64/libagm_compress_plugin.so
 vendor/lib64/libagm_mixer_plugin.so
 vendor/lib64/libagm_pcm_plugin.so
@@ -170,7 +170,7 @@ vendor/lib/libresampler.so
 vendor/lib/libsndcardparser.so
 vendor/lib/libxlog.so
 vendor/lib/vendor.qti.hardware.pal@1.0-impl.so
-vendor/lib/vendor.qti.hardware.pal@1.0.so
+vendor/lib/vendor.qti.hardware.pal@1.0.so;MODULE_SUFFIX=_vendor
 vendor/lib64/hw/audio.primary.taro.so
 vendor/lib64/hw/gyro_fusion_interface.so
 vendor/lib64/libadm.so
@@ -225,7 +225,7 @@ vendor/lib64/soundfx/libswdap.so
 vendor/lib64/soundfx/libswgamedap.so
 vendor/lib64/soundfx/libswvqe.so
 vendor/lib64/vendor.qti.hardware.pal@1.0-impl.so
-vendor/lib64/vendor.qti.hardware.pal@1.0.so
+vendor/lib64/vendor.qti.hardware.pal@1.0.so;MODULE_SUFFIX=_vendor
 
 # Batterysecret
 vendor/bin/batterysecret
