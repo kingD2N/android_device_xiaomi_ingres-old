@@ -35,6 +35,10 @@ TARGET_PROVIDES_AUDIO_HAL ?= true
 # Capacity mAh
 BOARD_BATTERY_CAPACITY := 4700
 
+# Init
+$(call soong_config_set,libinit,vendor_init_lib,//$(DEVICE_PATH):init_xiaomi_ingres)
+TARGET_RECOVERY_DEVICE_MODULES ?= init_xiaomi_ingres
+
 # Properties
 TARGET_SYSTEM_PROP += $(DEVICE_PATH)/properties/system.prop
 TARGET_VENDOR_PROP += $(DEVICE_PATH)/properties/vendor.prop
