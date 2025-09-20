@@ -16,7 +16,13 @@ PRODUCT_MANUFACTURER := POCO
 PRODUCT_BRAND := POCO
 PRODUCT_MODEL := 21121210G
 
-PRODUCT_SYSTEM_NAME := ingres_global
-PRODUCT_SYSTEM_DEVICE := ingres
+PRODUCT_BUILD_PROP_OVERRIDES += \
+    BuildDesc="ingres-user 12 SKQ1.230401.001 OS2.0.5.0.ULJCNXM release-keys" \
+    BuildFingerprint=Redmi/ingres/ingres:12/SKQ1.230401.001/OS2.0.5.0.ULJCNXM:user/release-keys \
+    DeviceProduct=zeus \
+    SystemName=zeus_global
 
 PRODUCT_GMS_CLIENTID_BASE := android-xiaomi
+
+# Private signature (include if exists)
+-include vendor/lineage-priv/keys/keys.mk
