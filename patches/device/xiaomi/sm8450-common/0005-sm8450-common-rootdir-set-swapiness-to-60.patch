@@ -1,0 +1,43 @@
+From 37983a4c2eeb932cb6f423a37580217a8a089a83 Mon Sep 17 00:00:00 2001
+From: ParsaAslaniYC <parsaaslani.67@gmail.com>
+Date: Sat, 20 Sep 2025 20:42:01 +0200
+Subject: [PATCH] sm8450-common: rootdir: set swapiness to 60 it was previously
+ set to 140 which puts a lot pressure on ufs chip, its already fucked in
+ ingres devices due to several overheating issues so we need to make sure
+ theres nothing putting pressure on the device hardware, honestly im just
+ doing this to control temps
+
+---
+ rootdir/etc/init.qcom.rc       | 2 +-
+ rootdir/etc/init.qti.kernel.rc | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/rootdir/etc/init.qcom.rc b/rootdir/etc/init.qcom.rc
+index 08393c5..4ddcea1 100644
+--- a/rootdir/etc/init.qcom.rc
++++ b/rootdir/etc/init.qcom.rc
+@@ -61,7 +61,7 @@ on init
+ 
+     # Create cgroup mount point for memory
+     mkdir /sys/fs/cgroup/memory/bg 0750 root system
+-    write /sys/fs/cgroup/memory/bg/memory.swappiness 140
++    write /sys/fs/cgroup/memory/bg/memory.swappiness 60
+     write /sys/fs/cgroup/memory/bg/memory.move_charge_at_immigrate 1
+     chown root system /sys/fs/cgroup/memory/bg/tasks
+     chmod 0660 /sys/fs/cgroup/memory/bg/tasks
+diff --git a/rootdir/etc/init.qti.kernel.rc b/rootdir/etc/init.qti.kernel.rc
+index 15de3a8..863091e 100644
+--- a/rootdir/etc/init.qti.kernel.rc
++++ b/rootdir/etc/init.qti.kernel.rc
+@@ -51,7 +51,7 @@ on init
+ 
+     # Create cgroup mount point for memory
+     mkdir /sys/fs/cgroup/memory/bg 0750 root system
+-    write /sys/fs/cgroup/memory/bg/memory.swappiness 140
++    write /sys/fs/cgroup/memory/bg/memory.swappiness 60
+     write /sys/fs/cgroup/memory/bg/memory.move_charge_at_immigrate 1
+     chown root system /sys/fs/cgroup/memory/bg/tasks
+     chmod 0660 /sys/fs/cgroup/memory/bg/tasks
+-- 
+2.34.1
+
