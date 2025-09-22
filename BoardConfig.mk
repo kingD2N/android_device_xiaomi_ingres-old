@@ -10,6 +10,9 @@ include device/xiaomi/sm8450-common/BoardConfigCommon.mk
 # Inherit from the proprietary version
 include vendor/xiaomi/ingres/BoardConfigVendor.mk
 
+# Vendor gamekey additions (if present)
+-include vendor/xiaomi/gamekey/BoardConfigVendor.mk
+
 # Inherit from proprietary files for miuicamera (if it exists)
 -include device/xiaomi/miuicamera-ingres/BoardConfig.mk
 

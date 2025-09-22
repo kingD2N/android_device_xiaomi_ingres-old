@@ -13,6 +13,9 @@ $(call inherit-product, vendor/xiaomi/ingres/ingres-vendor.mk)
 # Call the MiuiCamera setup (if it exists)
 $(call inherit-product-if-exists, device/xiaomi/miuicamera-ingres/device.mk)
 
+# Call the gamekey setup (if it exists)
+$(call inherit-product-if-exists, vendor/xiaomi/gamekey/common-vendor.mk)
+
 # Audio configs
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/audio/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio/sku_taro/audio_effects.xml \

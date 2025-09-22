@@ -127,6 +127,10 @@ clone-repo Ingres-Centre    android_hardware_qcom_audio-ar 	                    
 clone-repo Ingres-Centre    android_vendor_qcom_opensource_arpal-lx 	            lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
 clone-repo Ingres-Centre    android_vendor_qcom_opensource_audioreach-graphservices lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
 
+# external modules
+# func		repo owner	repo				branch		target path
+clone-repo 	Ingres-Centre	android_vendor_xiaomi_gamekey	master		vendor/xiaomi/gamekey
+
 echo 'Looking for patch targets...'
 PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ -type f \( -iname '*.patch' \) -exec dirname {} \; | sort -u | sed 's/device\/xiaomi\/ingres\/patches\///')"
 
