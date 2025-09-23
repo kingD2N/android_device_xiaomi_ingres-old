@@ -7,7 +7,7 @@ fi
 
 CWD="$(realpath .)"
 
-if [ "$1" == "--force" ]; then
+if [[ "$1" == "--force" ]]; then
     echo "WARNING: You are specified '--force' argument!"
 	echo "WARNING: The targets to which the patches will be applied will have a git reset performed."
     FORCE=1
@@ -64,7 +64,7 @@ clone-repo() {
 		echo "Repository already clonned! Updating..."
         cd "$OUT"
 
-        if [ "$FORCE" -eq 1 ]; then
+        if [[ "$FORCE" -eq 1 ]]; then
             reset "$BRANCH" "$REPO_URL"
             return
         fi
@@ -134,7 +134,7 @@ clone-repo 	Ingres-Centre	android_vendor_xiaomi_gamekey	master		vendor/xiaomi/ga
 echo 'Looking for patch targets...'
 PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ -type f \( -iname '*.patch' \) -exec dirname {} \; | sort -u | sed 's/device\/xiaomi\/ingres\/patches\///')"
 
-if [ "$1" == "--force" ]; then
+if [[ "$1" == "--force" ]]; then
 	echo "WARNING: The targets to which the patches will be applied will have a git reset performed."
 fi
 
@@ -144,7 +144,7 @@ for TARGET in $PATCH_TARGETS; do
 
 	cd "$TARGET"
 
-	if [ "$1" == "--force" ]; then
+	if [[ "$1" == "--force" ]]; then
 		echo "Performing git reset..."
 		git fetch origin 1&>/dev/null
 		git reset --hard origin 1&>/dev/null
