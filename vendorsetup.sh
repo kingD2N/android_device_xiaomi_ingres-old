@@ -105,7 +105,7 @@ clone-repo() {
 			# no need to reset, bc we have removed dir xd
         fi
 
-        git clone "$REPO_URL" -b "$BRANCH" "$OUT"
+        git clone "$REPO_URL" -b "$BRANCH" "$OUT" --recurse-submodules
         echo "Clonning completed successfully!"
     fi
 
