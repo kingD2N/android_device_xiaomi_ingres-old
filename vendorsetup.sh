@@ -20,8 +20,9 @@ error() {
 }
 
 reset() {
-    git remote remove origin 
+    git remote remove origin
     git remote add -t "$1" origin "$2" -f
+    git checkout -b "$1" "origin/$1"
     git reset --hard origin/$1
     git pull
     cd "$CWD"
