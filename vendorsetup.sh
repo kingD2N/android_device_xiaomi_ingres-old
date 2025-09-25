@@ -139,9 +139,9 @@ if [[ "$1" == "--force" ]]; then
 	echo "WARNING: The targets to which the patches will be applied will have a git reset performed."
 fi
 
-for TARGET in $PATCH_TARGETS; do
-	BACK_PATH="$(echo $TARGET | sed -E 's/[a-zA-Z0-9_-]+/../g')"
-	echo Applying patches to $TARGET
+while IFS= read -r TARGET; do
+	BACK_PATH="$(echo "$TARGET" | sed -E 's/[a-zA-Z0-9_-]+/../g')"
+	echo Applying patches to "$TARGET"
 
 	cd "$TARGET"
 
@@ -154,4 +154,4 @@ for TARGET in $PATCH_TARGETS; do
 
 	git am --3way "$BACK_PATH/device/xiaomi/ingres/patches/$TARGET"/*.patch | grep 'Applying: '
 	cd "$BACK_PATH"
-done
+done < <(echo "$PATCH_TARGETS")
