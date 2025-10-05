@@ -115,7 +115,7 @@ clone-repo() {
 
 echo 'IMPORTANT WARNING: Generate the vendor yourself with OS2.0.4.0ULJCNMX (Redmi K50G Latest OS2 firmware. which is Chinese)'
 
-clone-repo LineageOS        android_device_xiaomi_sm8450-common         lineage-22.2    device/xiaomi/sm8450-common
+clone-repo LineageOS        android_device_xiaomi_sm8450-common         lineage-23.0    device/xiaomi/sm8450-common
 clone-repo Ingres-Centre    proprietary_vendor_xiaomi_sm8450-common     16              vendor/xiaomi/sm8450-common
 clone-repo Ingres-Centre    android_hardware_xiaomi                     lineage-23.0    hardware/xiaomi
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450	            lineage-23.0    kernel/xiaomi/sm8450
