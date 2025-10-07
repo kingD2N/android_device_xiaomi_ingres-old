@@ -123,10 +123,10 @@ clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-modules	    lineage-22.
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-devicetrees	lineage-22.2    kernel/xiaomi/sm8450-devicetrees
 
 # too long repo name :|
-clone-repo Ingres-Centre    android_vendor_qcom_opensource_agm 	                    lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/agm
-clone-repo Ingres-Centre    android_hardware_qcom_audio-ar 	                        lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/primary-hal
-clone-repo Ingres-Centre    android_vendor_qcom_opensource_arpal-lx 	            lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
-clone-repo Ingres-Centre    android_vendor_qcom_opensource_audioreach-graphservices lineage-22.2-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
+clone-repo LineageOS    android_vendor_qcom_opensource_agm			lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/agm
+clone-repo LineageOS    android_hardware_qcom_audio-ar				lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/primary-hal
+clone-repo LineageOS    android_vendor_qcom_opensource_arpal-lx			lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
+clone-repo LineageOS    android_vendor_qcom_opensource_audioreach-graphservices	lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
 
 # external modules
 # func		repo owner	repo				branch		target path
