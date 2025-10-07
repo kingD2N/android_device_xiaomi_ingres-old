@@ -94,7 +94,9 @@ clone-repo() {
             kill -INT $$
         fi
 		
-        git pull origin
+	git fetch
+	git pull origin "$BRANCH"
+	git reset --hard FETCH_HEAD
 
         echo "Existing repo pulled successfully!"
     else
