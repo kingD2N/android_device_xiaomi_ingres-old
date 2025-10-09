@@ -112,28 +112,25 @@ vendor/firmware/cs35l41-dsp1-spk-cali.wmfw
 vendor/firmware/cs35l41-dsp1-spk-prot.wmfw
 
 # Audio graph manager
-vendor/lib/libagm.so
-vendor/lib/vendor.qti.hardware.AGMIPC@1.0-impl.so
-vendor/lib64/libagm.so
-vendor/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so
 vendor/bin/agmcap
 vendor/bin/agmcompressplay
 vendor/bin/agmplay
 vendor/bin/cplay
-vendor/bin/hw/vendor.qti.hardware.AGMIPC@1.0-service
-vendor/etc/init/vendor.qti.hardware.AGMIPC@1.0-service.rc
-vendor/lib/libagm_compress_plugin.so
-vendor/lib/libagm_mixer_plugin.so
-vendor/lib/libagm_pcm_plugin.so
-vendor/lib/libagmclient.so
-vendor/lib/libagmmixer.so
-vendor/lib/vendor.qti.hardware.AGMIPC@1.0.so
+vendor/lib64/libagm.so
 vendor/lib64/libagm_compress_plugin.so
 vendor/lib64/libagm_mixer_plugin.so
 vendor/lib64/libagm_pcm_plugin.so
 vendor/lib64/libagmclient.so
 vendor/lib64/libagmmixer.so
+
+vendor/bin/hw/vendor.qti.hardware.AGMIPC@1.0-service
+vendor/etc/init/vendor.qti.hardware.AGMIPC@1.0-service.rc
 vendor/lib64/vendor.qti.hardware.AGMIPC@1.0.so
+vendor/lib64/vendor.qti.hardware.AGMIPC@1.0-impl.so
+
+vendor/lib64/vendor.qti.hardware.ListenSoundModel@1.0.so
+vendor/lib64/vendor.qti.hardware.ListenSoundModel@1.0-impl.so
+vendor/lib64/liblistensoundmodel2vendor.so
 
 # Audio libraries
 vendor/etc/audio_cloud_control_white_list.xml
@@ -152,7 +149,11 @@ vendor/lib/libar-pal.so
 vendor/lib/libats.so
 vendor/lib/libaudio_log_utils.so
 vendor/lib/libaudiocloudctrl.so
-vendor/lib/libaudioroute_ext.so
+
+vendor/lib64/libaudioroute_ext.so;REQUIRED=libaudioroute
+
+system_ext/lib64/vendor.xiaomi.hardware.mediaeventgatherservice-V1-ndk.so
+
 vendor/lib/libbatterylistener.so
 vendor/lib/libcapiv2svacnnvendor.so
 vendor/lib/libcapiv2svarnnvendor.so
@@ -182,7 +183,6 @@ vendor/lib64/libar-pal.so
 vendor/lib64/libats.so
 vendor/lib64/libaudio_log_utils.so
 vendor/lib64/libaudiocloudctrl.so
-vendor/lib64/libaudioroute_ext.so
 vendor/lib64/libbatterylistener.so
 vendor/lib64/libcapiv2svacnnvendor.so
 vendor/lib64/libcapiv2svarnnvendor.so

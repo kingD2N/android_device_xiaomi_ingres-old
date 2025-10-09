@@ -1,0 +1,26 @@
+From f4f9624780ca9aaadb8327b1cad40329cdee24c4 Mon Sep 17 00:00:00 2001
+From: n08i40k <nhomcencko1@gmail.com>
+Date: Tue, 7 Oct 2025 05:06:27 +0400
+Subject: [PATCH] sthal-ar: include namespaces for unresolved deps
+
+Change-Id: I3a7d12dc299b93b0af67be9ba8a9f5c4f0d927d1
+---
+ Android.bp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Android.bp b/Android.bp
+index f49a220..9742c4d 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -1,4 +1,8 @@
+ soong_namespace {
++    imports: [
++        "vendor/xiaomi/ingres",
++        "hardware/qcom-caf/sm8450",
++    ],
+ }
+ 
+ soong_config_module_type {
+-- 
+2.51.0
+
