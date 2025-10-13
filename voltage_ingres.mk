@@ -26,3 +26,21 @@ PRODUCT_GMS_CLIENTID_BASE := android-xiaomi
 
 # Private signature (include if exists)
 -include vendor/lineage-priv/keys/keys.mk
+
+# VoltageOS flags.
+TARGET_FACE_UNLOCK_SUPPORTED := true
+VOLTAGE_BUILD_TYPE := UNOFFICIAL
+
+# Voltage OS CPU Flag
+VOLTAGE_CPU_SMALL_CORES := 0,1,2,3
+VOLTAGE_CPU_BIG_CORES := 4,5,6,7
+
+# CPU Sets configuration
+VOLTAGE_CPU_BG := 0-3
+VOLTAGE_CPU_FG := 0-7
+VOLTAGE_CPU_LIMIT_BG := 0-2
+VOLTAGE_CPU_UNLIMIT_UI := 0-7
+VOLTAGE_CPU_LIMIT_UI := 0-3
+VOLTAGE_CPU_DISPLAY := 4-7
+VOLTAGE_CPU_AUDIO := 0-4
+
