@@ -49,4 +49,6 @@ TARGET_VENDOR_PROP += $(DEVICE_PATH)/properties/vendor.prop
 TARGET_SCREEN_DENSITY := 395
 
 # Vintf
-DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += $(DEVICE_PATH)/vintf/dolby.xml
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += \
+	$(DEVICE_PATH)/vintf/dolby.xml \
+	$(DEVICE_PATH)/vintf/compatibility_matrix.xml
