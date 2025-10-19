@@ -10,6 +10,9 @@ include device/xiaomi/sm8450-common/BoardConfigCommon.mk
 # Inherit from the proprietary version
 include vendor/xiaomi/ingres/BoardConfigVendor.mk
 
+# Inherit firmware (if it exists)
+-include vendor/xiaomi/ingres-firmware/config.mk
+
 # Vendor gamekey additions (if present)
 -include vendor/xiaomi/gamekey/BoardConfigVendor.mk
 

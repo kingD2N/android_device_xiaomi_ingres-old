@@ -123,6 +123,7 @@ clone-repo Ingres-Centre    android_hardware_xiaomi                     lineage-
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450	        lineage-23.0    kernel/xiaomi/sm8450
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-modules	lineage-22.2    kernel/xiaomi/sm8450-modules
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-devicetrees	lineage-22.2    kernel/xiaomi/sm8450-devicetrees
+clone-repo Ingres-Centre    proprietary_vendor_xiaomi_ingres-firmware   OS2.0.5.0.ULJCNXM vendor/xiaomi/ingres-firmware
 
 # external modules
 # func		repo owner	repo				branch		target path
