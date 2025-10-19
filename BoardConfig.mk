@@ -16,6 +16,16 @@ include vendor/xiaomi/ingres/BoardConfigVendor.mk
 # Inherit from proprietary files for miuicamera (if it exists)
 -include device/xiaomi/miuicamera-ingres/BoardConfig.mk
 
+# Architecture
+TARGET_ARCH_VARIANT := armv8-2a-dotprod
+
+TARGET_2ND_ARCH :=
+TARGET_2ND_ARCH_VARIANT :=
+TARGET_2ND_CPU_ABI :=
+TARGET_2ND_CPU_ABI2 :=
+TARGET_2ND_CPU_VARIANT :=
+TARGET_2ND_CPU_VARIANT_RUNTIME :=
+
 # Audio
 AUDIO_FEATURE_ENABLED_DLKM := true
 AUDIO_FEATURE_ENABLED_DTS_EAGLE := false
@@ -36,6 +46,13 @@ TARGET_PROVIDES_AUDIO_HAL ?= true
 
 # Capacity mAh
 BOARD_BATTERY_CAPACITY := 4700
+
+# Kernel
+device_vendor_dlkm_exclusive_modules := \
+    xm_gamekeys.ko
+
+BOARD_VENDOR_KERNEL_MODULES_LOAD += $(device_vendor_dlkm_exclusive_modules)
+TARGET_KERNEL_EXT_MODULES += gamekeys
 
 # Init
 $(call soong_config_set,libinit,vendor_init_lib,//$(DEVICE_PATH):init_xiaomi_ingres)
