@@ -115,45 +115,16 @@ clone-repo() {
     cd "$CWD"
 }
 
-echo 'IMPORTANT WARNING: Generate the vendor yourself with OS2.0.4.0ULJCNMX (Redmi K50G Latest OS2 firmware. which is Chinese)'
+echo 'IMPORTANT WARNING: Generate the vendor yourself with OS2.0.5.0ULJCNXM (Redmi K50G Latest OS2 firmware. which is Chinese)'
 
 clone-repo LineageOS        android_device_xiaomi_sm8450-common         lineage-23.0    device/xiaomi/sm8450-common
-clone-repo Ingres-Centre    proprietary_vendor_xiaomi_sm8450-common     16              vendor/xiaomi/sm8450-common
+clone-repo TheMuppets       proprietary_vendor_xiaomi_sm8450-common     lineage-23.0    vendor/xiaomi/sm8450-common
 clone-repo Ingres-Centre    android_hardware_xiaomi                     lineage-23.0    hardware/xiaomi
-clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450	            lineage-23.0    kernel/xiaomi/sm8450
-clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-modules	    lineage-22.2    kernel/xiaomi/sm8450-modules
+clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450	        lineage-23.0    kernel/xiaomi/sm8450
+clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-modules	lineage-22.2    kernel/xiaomi/sm8450-modules
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-devicetrees	lineage-22.2    kernel/xiaomi/sm8450-devicetrees
-
-# too long repo name :|
-clone-repo LineageOS    android_vendor_qcom_opensource_agm			lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/agm
-clone-repo LineageOS    android_hardware_qcom_audio-ar				lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/primary-hal
-clone-repo LineageOS    android_vendor_qcom_opensource_arpal-lx			lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
-clone-repo LineageOS    android_vendor_qcom_opensource_audioreach-graphservices	lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
+clone-repo Ingres-Centre    proprietary_vendor_xiaomi_ingres-firmware   OS2.0.5.0.ULJCNXM vendor/xiaomi/ingres-firmware
 
 # external modules
 # func		repo owner	repo				branch		target path
 clone-repo 	Ingres-Centre	android_vendor_xiaomi_gamekey	master		vendor/xiaomi/gamekey
-
-echo 'Looking for patch targets...'
-PATCH_TARGETS="$(find device/xiaomi/ingres/patches/ -type f \( -iname '*.patch' \) -exec dirname {} \; | sort -u | sed 's/device\/xiaomi\/ingres\/patches\///')"
-
-if [[ "$1" == "--force" ]]; then
-	echo "WARNING: The targets to which the patches will be applied will have a git reset performed."
-fi
-
-while IFS= read -r TARGET; do
-	BACK_PATH="$(echo "$TARGET" | sed -E 's/[a-zA-Z0-9_-]+/../g')"
-	echo Applying patches to "$TARGET"
-
-	cd "$TARGET"
-
-	if [[ "$1" == "--force" ]]; then
-		echo "Performing git reset..."
-		git fetch origin 1&>/dev/null
-		git reset --hard origin 1&>/dev/null
-		git clean -fd 1&>/dev/null
-	fi
-
-	git am --3way "$BACK_PATH/device/xiaomi/ingres/patches/$TARGET"/*.patch | grep 'Applying: '
-	cd "$BACK_PATH"
-done < <(echo "$PATCH_TARGETS")
