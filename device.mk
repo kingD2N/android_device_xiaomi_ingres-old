@@ -95,6 +95,3 @@ PRODUCT_PACKAGES += \
 # Soong namespaces
 PRODUCT_SOONG_NAMESPACES += \
     $(LOCAL_PATH)
-
-# Xiaomi Parts
-PRODUCT_PACKAGES += XiaomiParts
