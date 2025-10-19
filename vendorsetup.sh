@@ -115,20 +115,14 @@ clone-repo() {
     cd "$CWD"
 }
 
-echo 'IMPORTANT WARNING: Generate the vendor yourself with OS2.0.4.0ULJCNMX (Redmi K50G Latest OS2 firmware. which is Chinese)'
+echo 'IMPORTANT WARNING: Generate the vendor yourself with OS2.0.5.0ULJCNXM (Redmi K50G Latest OS2 firmware. which is Chinese)'
 
 clone-repo LineageOS        android_device_xiaomi_sm8450-common         lineage-23.0    device/xiaomi/sm8450-common
-clone-repo Ingres-Centre    proprietary_vendor_xiaomi_sm8450-common     16              vendor/xiaomi/sm8450-common
+clone-repo TheMuppets       proprietary_vendor_xiaomi_sm8450-common     lineage-23.0    vendor/xiaomi/sm8450-common
 clone-repo Ingres-Centre    android_hardware_xiaomi                     lineage-23.0    hardware/xiaomi
-clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450	            lineage-23.0    kernel/xiaomi/sm8450
-clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-modules	    lineage-22.2    kernel/xiaomi/sm8450-modules
+clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450	        lineage-23.0    kernel/xiaomi/sm8450
+clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-modules	lineage-22.2    kernel/xiaomi/sm8450-modules
 clone-repo Ingres-Centre    android_kernel_xiaomi_sm8450-devicetrees	lineage-22.2    kernel/xiaomi/sm8450-devicetrees
-
-# too long repo name :|
-clone-repo LineageOS    android_vendor_qcom_opensource_agm			lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/agm
-clone-repo LineageOS    android_hardware_qcom_audio-ar				lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/primary-hal
-clone-repo LineageOS    android_vendor_qcom_opensource_arpal-lx			lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/pal
-clone-repo LineageOS    android_vendor_qcom_opensource_audioreach-graphservices	lineage-23.0-caf-sm8450 hardware/qcom-caf/sm8450/audio/graphservices
 
 # external modules
 # func		repo owner	repo				branch		target path
