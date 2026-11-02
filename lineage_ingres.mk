@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2022-2024 The LineageOS Project
+# Copyright (C) 2025 The LineageOS Project
 #
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -12,17 +12,14 @@ $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
 PRODUCT_NAME := lineage_ingres
 PRODUCT_DEVICE := ingres
-PRODUCT_MANUFACTURER := POCO
-PRODUCT_BRAND := POCO
+PRODUCT_MANUFACTURER := Xiaomi
+PRODUCT_BRAND := Redmi
 PRODUCT_MODEL := 21121210G
 
 PRODUCT_BUILD_PROP_OVERRIDES += \
-    BuildDesc="ingres-user 12 SKQ1.230401.001 OS2.0.5.0.ULJCNXM release-keys" \
-    BuildFingerprint=Redmi/ingres/ingres:12/SKQ1.230401.001/OS2.0.5.0.ULJCNXM:user/release-keys \
+    BuildDesc="ingres-user 14 UKQ1.240624.001 OS2.0.5.0.ULJCNXM release-keys" \
+    BuildFingerprint=Redmi/ingres/ingres:14/UKQ1.240624.001/OS2.0.5.0.ULJCNXM:user/release-keys \
     DeviceProduct=ingres \
-    SystemName=ingres_global
+    SystemName=ingres
 
 PRODUCT_GMS_CLIENTID_BASE := android-xiaomi
-
-# Private signature (include if exists)
--include vendor/lineage-priv/keys/keys.mk

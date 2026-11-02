@@ -1,8 +1,14 @@
 # All unpinned blobs below are extracted from ingres OS2.0.5.0ULJCNXM
 
 # ACDB
-vendor/etc/acdbdata/Mise/Mise_acdb_cal.acdb;SYMLINK=vendor/etc/acdbdata/waipio_mtp/Mise_acdb_call.acdb
-vendor/etc/acdbdata/Mise/Mise_workspaceFileXml.qwsp;SYMLINK=vendor/etc/acdbdata/waipio_mtp/Mise_workspaceFileXml.qwsp
+vendor/etc/acdbdata/Mise/Mise_acdb_cal.acdb:vendor/etc/acdbdata/waipio_mtp/Mise_acdb_call.acdb
+vendor/etc/acdbdata/Mise/Mise_workspaceFileXml.qwsp:vendor/etc/acdbdata/waipio_mtp/Mise_workspaceFileXml.qwsp
+vendor/etc/acdbdata/nn_ns_models/fai__2.3.0_0.1__3.0.0_0.0__eai_1.36_enpu2_comp.pmd
+vendor/etc/acdbdata/nn_ns_models/fai__2.3.0_0.1__3.0.0_0.0__eai_1.10.pmd
+vendor/etc/acdbdata/nn_ns_models/fai__2.0.0_0.1__3.0.0_0.0__eai_1.36_enpu2.pmd
+vendor/etc/acdbdata/nn_ns_models/fai__2.7.20_0.0__3.0.0_0.0__eai_1.36_enpu2.pmd
+vendor/etc/acdbdata/nn_ns_models/fai__2.7.2_0.0__3.0.0_0.0__eai_1.36_enpu2.pmd
+vendor/etc/acdbdata/nn_vad_models/fai__3.0.0_0.0__eai_1.36_enpu2.pmd
 
 # ADSP modules
 vendor/lib/rfsa/adsp/bm2n00.bin
@@ -67,9 +73,6 @@ vendor/lib/rfsa/adsp/misound_res_headphone.bin
 vendor/lib/rfsa/adsp/misound_res_spk.bin
 vendor/lib/rfsa/adsp/misound_res_spk4ch.bin
 
-# Audio policy
-# vendor/etc/seccomp_policy/c2audio.vendor.base-arm64.policy
-
 # Audio Firmware
 vendor/firmware/BH-cs35l41-dsp1-spk-cali.bin
 vendor/firmware/BH-cs35l41-dsp1-spk-prot.bin
@@ -88,6 +91,10 @@ vendor/firmware/TL-cs35l41-dsp1-spk-prot.bin
 vendor/firmware/TL-handfree.txt
 vendor/firmware/TL-handset.txt
 vendor/firmware/TL-music.txt
+vendor/firmware/cs35l41-dsp1-spk-cali.wmfw
+vendor/firmware/cs35l41-dsp1-spk-prot.wmfw
+
+# Awinic LEDs firmware
 vendor/firmware/aw22xxx_cfg_audio_flower.bin
 vendor/firmware/aw22xxx_cfg_audio_skyline.bin
 vendor/firmware/aw22xxx_cfg_led_blue_13.bin
@@ -108,8 +115,6 @@ vendor/firmware/aw22xxx_cfg_led_red_on.bin
 vendor/firmware/aw22xxx_cfg_led_skyline.bin
 vendor/firmware/aw22xxx_cfg_led_yellow_on.bin
 vendor/firmware/aw22xxx_fw.bin
-vendor/firmware/cs35l41-dsp1-spk-cali.wmfw
-vendor/firmware/cs35l41-dsp1-spk-prot.wmfw
 
 # Batterysecret
 vendor/bin/batterysecret
@@ -538,6 +543,7 @@ vendor/lib64/camera/fdconfigpreview.bin
 vendor/lib64/camera/fdconfigpreviewlite.bin
 vendor/lib64/camera/fdconfigvideo.bin
 vendor/lib64/camera/fdconfigvideolite.bin
+vendor/lib64/camera/libQnnHtpAltPrepV69Skel.so;MODULE_SUFFIX=_camera
 vendor/lib64/camera/libQnnHtpAltPrepV69Stub.so;MODULE_SUFFIX=-camera
 vendor/lib64/camera/plugins/com.xiaomi.plugin.anchor.so
 vendor/lib64/camera/plugins/com.xiaomi.plugin.arcsoftsll.so
@@ -639,6 +645,9 @@ vendor/lib64/libarcsoft_beautyshot.so
 vendor/lib64/libarcsoft_qnnhtp.so
 vendor/lib64/libarcsoft_super_night_raw.so
 vendor/lib64/libbeauty_face_interface.so
+vendor/lib64/libwa_rtdof.so
+vendor/lib64/libwa_refocus.so
+vendor/lib64/libwa_depth.so
 vendor/lib64/libbitmlengine.so
 vendor/lib64/libbitmlenginev2.so
 vendor/lib64/libc++_shared.so
@@ -751,7 +760,7 @@ vendor/lib64/libvidhance_stabilizer.so
 vendor/lib64/libvidhance_super_stabilization.so
 vendor/lib64/libxmi_hdr_checker.so
 vendor/lib64/libxmi_high_dynamic_range.so
-vendor/lib64/libxmi_high_dynamic_range_cdsp.so
+vendor/lib64/libxmi_high_dynamic_range_cdsp.so;STRIP_DEBUG_SECTIONS
 vendor/lib64/libxmi_slow_motion_mein.so
 vendor/lib64/vendor.qti.hardware.camera.aon@1.0-service-impl.so
 vendor/lib64/vendor.qti.hardware.camera.postproc@1.0-service-impl.so
@@ -867,7 +876,6 @@ vendor/firmware/evautil64.mdt
 # Display configs
 product/etc/displayconfig/display_id_4630946545580055170.xml:vendor/etc/displayconfig/display_id_4630946545580055170.xml
 vendor/etc/display/qdcm_calib_data_xiaomi_42_02_0a_mp_cmd_mode_dsc_dsi_panel.json
-vendor/etc/mdss_dsi_l10_42_02_0a_dsc_cmd_mi.xml
 
 # Fingerprint
 vendor/lib64/hw/fingerprint.fpc.so:vendor/lib64/hw/fingerprint.fpc.default.so;FIX_SONAME
@@ -877,14 +885,12 @@ vendor/lib64/libgf_ca.so
 vendor/lib64/libgoodixhwfingerprint.so
 
 # Graphics (Adreno firmware)
-vendor/firmware/a730_sqe.fw
 vendor/firmware/a730_zap.b00
 vendor/firmware/a730_zap.b01
 vendor/firmware/a730_zap.b02
 vendor/firmware/a730_zap.elf
 vendor/firmware/a730_zap.mbn
 vendor/firmware/a730_zap.mdt
-vendor/firmware/gmu_gen70000.bin
 
 # NFC configs
 vendor/etc/libnfc-nci.conf
@@ -1030,8 +1036,3 @@ vendor/firmware/vpu20_4v.b18
 vendor/firmware/vpu20_4v.b19
 vendor/firmware/vpu20_4v.mbn
 vendor/firmware/vpu20_4v.mdt
-
-# MISC
-vendor/lib64/libwa_rtdof.so
-vendor/lib64/libwa_refocus.so
-vendor/lib64/libwa_depth.so
