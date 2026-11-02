@@ -45,3 +45,18 @@ source build/envsetup.sh
 breakfast ingres
 m bacon
 ```
+
+## Firmware
+
+ROM ini ikut membawa firmware HyperOS **OS2.0.8.0.ULJCNXM** (abl, xbl, tz, hyp, dsp,
+bluetooth, dll. — lihat `proprietary-firmware.txt`), jadi firmware ikut ter-flash
+setiap update OTA LineageOS.
+
+`modem.img` tidak ikut (281 MB, melebihi batas file GitHub). Flash sekali secara manual
+sebelum/ sesudah memasang ROM, dari release
+[ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM):
+
+```bash
+fastboot flash modem_a modem.img
+fastboot flash modem_b modem.img
+```

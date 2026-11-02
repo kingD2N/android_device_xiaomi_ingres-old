@@ -1,0 +1,24 @@
+## All proprietary files from this list, unless pinned and noted otherwise,
+## are from ingres OS2.0.8.0.ULJCNXM
+## modem.img is not shipped (>100 MB, GitHub limit): flash it manually from
+## https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM
+
+abl.img;AB
+aop.img;AB
+aop_config.img;AB
+bluetooth.img;AB
+cpucp.img;AB
+devcfg.img;AB
+dsp.img;AB
+featenabler.img;AB
+hyp.img;AB
+imagefv.img;AB
+keymaster.img;AB
+qupfw.img;AB
+shrm.img;AB
+tz.img;AB
+uefi.img;AB
+uefisecapp.img;AB
+xbl.img;AB
+xbl_config.img;AB
+xbl_ramdump.img;AB
