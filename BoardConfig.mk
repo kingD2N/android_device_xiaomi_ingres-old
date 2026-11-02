@@ -19,6 +19,11 @@ DEVICE_PATH := device/xiaomi/ingres
 AUDIO_FEATURE_ENABLED_CIRRUS_CALIBRATION_RESISTANCE := true
 AUDIO_FEATURE_ENABLED_ULTRASOUND_PROXIMITY := true
 
+# Kernel modules
+BOARD_VENDOR_KERNEL_MODULES_LOAD += \
+    leds-aw22xxx.ko \
+    xm_gamekey.ko
+
 # Properties
 TARGET_SYSTEM_PROP += $(DEVICE_PATH)/properties/system.prop
 TARGET_VENDOR_PROP += $(DEVICE_PATH)/properties/vendor.prop
