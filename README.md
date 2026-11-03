@@ -52,11 +52,7 @@ ROM ini ikut membawa firmware HyperOS **OS2.0.8.0.ULJCNXM** (abl, xbl, tz, hyp, 
 bluetooth, dll. — lihat `proprietary-firmware.txt`), jadi firmware ikut ter-flash
 setiap update OTA LineageOS.
 
-`modem.img` tidak ikut (281 MB, melebihi batas file GitHub). Flash sekali secara manual
-sebelum/ sesudah memasang ROM, dari release
-[ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM):
-
-```bash
-fastboot flash modem_a modem.img
-fastboot flash modem_b modem.img
-```
+`modem.img` (281 MB) disimpan terpecah di `vendor/xiaomi/ingres/modem` karena batas file
+GitHub 100 MB. Saat build, `Android.mk` menggabungkannya, mengecek SHA1, lalu ikut
+ter-flash lewat OTA seperti firmware lain. Image firmware lengkap juga ada di release
+[ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM).
