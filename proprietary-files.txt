@@ -1,4 +1,4 @@
-# All unpinned blobs below are extracted from ingres OS2.0.5.0ULJCNXM
+# All unpinned blobs below are extracted from ingres OS2.0.8.0.ULJCNXM
 
 # ACDB
 vendor/etc/acdbdata/Mise/Mise_acdb_cal.acdb:vendor/etc/acdbdata/waipio_mtp/Mise_acdb_call.acdb
