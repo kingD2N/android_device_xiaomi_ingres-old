@@ -58,11 +58,11 @@ m bacon
 
 ## Firmware
 
-ROM ini ikut membawa firmware HyperOS **OS2.0.8.0.ULJCNXM** (abl, xbl, tz, hyp, dsp,
-bluetooth, dll. — lihat `proprietary-firmware.txt`), jadi firmware ikut ter-flash
-setiap update OTA LineageOS.
+ROM ini **tidak** membawa firmware (sama seperti ROM AOSP/LineageOS pada umumnya): zip hanya
+berisi partisi ROM (boot, dtbo, vendor_boot, recovery, system, system_ext, product, vendor,
+vendor_dlkm, odm, vbmeta). Blob vendor diambil dari HyperOS **OS2.0.8.0.ULJCNXM**, jadi
+pastikan firmware di HP sudah OS2.0.8.0 (atau versi HyperOS 2 terbaru) sebelum memasang ROM.
 
-`modem.img` (281 MB) disimpan terpecah di `vendor/xiaomi/ingres/modem` karena batas file
-GitHub 100 MB. Saat build, `Android.mk` menggabungkannya, mengecek SHA1, lalu ikut
-ter-flash lewat OTA seperti firmware lain. Image firmware lengkap juga ada di release
-[ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM).
+Image firmware OS2.0.8.0 tersedia di release
+[ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM)
+untuk di-flash manual lewat fastboot (`fastboot flash <partisi>_a <partisi>.img` dan `_b`).

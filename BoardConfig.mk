@@ -19,11 +19,6 @@ DEVICE_PATH := device/xiaomi/ingres
 AUDIO_FEATURE_ENABLED_CIRRUS_CALIBRATION_RESISTANCE := true
 AUDIO_FEATURE_ENABLED_ULTRASOUND_PROXIMITY := true
 
-# Firmware: modem.img is joined from parts by Android.mk
-ifneq ($(wildcard vendor/xiaomi/ingres/modem/modem.img.part00),)
-AB_OTA_PARTITIONS += modem
-endif
-
 # Kernel modules
 BOARD_VENDOR_KERNEL_MODULES_LOAD += \
     leds-aw22xxx.ko \
