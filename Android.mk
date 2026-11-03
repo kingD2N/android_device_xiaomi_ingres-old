@@ -20,8 +20,11 @@ INSTALLED_RADIOIMAGE_TARGET += $(PRODUCT_OUT)/modem.img
 $(PRODUCT_OUT)/modem.img: $(INGRES_MODEM_PARTS)
 	$(hide) mkdir -p $(dir $@)
 	$(hide) cat $^ > $@.tmp
-	$(hide) echo "$(INGRES_MODEM_SHA1)  $@.tmp" | sha1sum -c --quiet - || \
-	    (echo "modem.img: SHA1 mismatch" >&2; rm -f $@.tmp; exit 1)
+	$(hide) sum=$$(sha1sum $@.tmp | cut -d' ' -f1); \
+	    if [ "$$sum" != "$(INGRES_MODEM_SHA1)" ]; then \
+	        echo "modem.img: SHA1 mismatch ($$sum != $(INGRES_MODEM_SHA1))" >&2; \
+	        rm -f $@.tmp; exit 1; \
+	    fi
 	$(hide) mv $@.tmp $@
 endif
 
