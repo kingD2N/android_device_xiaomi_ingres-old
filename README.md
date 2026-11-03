@@ -35,6 +35,16 @@ Front camera | 20MP IMX596 in-display
 | Kernel module | [LineageOS/android_kernel_xiaomi_sm8450-modules](https://github.com/LineageOS/android_kernel_xiaomi_sm8450-modules) | lineage-24.0 |
 | Kernel device tree | [kingD2N/android_kernel_xiaomi_sm8450-devicetrees](https://github.com/kingD2N/android_kernel_xiaomi_sm8450-devicetrees) | lineage-24.0 |
 
+Cara paling mudah (skrip otomatis, jalan di byobu):
+
+```bash
+curl -LO https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/build-ingres.sh
+bash build-ingres.sh          # sync + build
+bash build-ingres.sh status   # cek progres
+```
+
+Manual:
+
 ```bash
 repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 --git-lfs --no-clone-bundle
 mkdir -p .repo/local_manifests
