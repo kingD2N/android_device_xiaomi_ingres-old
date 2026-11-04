@@ -85,6 +85,29 @@ check_disk() {
     fi
 }
 
+# GameKeys: libevdev (C) ada di submodule third_party/cpp/evdev (diambil lewat
+# local manifest). Crate rust-nya cuma dipakai gamekeyd (vendor), jadi dibuat
+# vendor-only agar tidak butuh varian core dari libevdev.
+fix_gamekey() {
+    local g=vendor/xiaomi/gamekey
+    [ -d "$g" ] || return 0
+    if [ ! -f "$g/third_party/cpp/evdev/Android.bp" ]; then
+        info "Mengambil libevdev untuk GameKeys"
+        repo sync -c -j1 --force-sync "$g/third_party/cpp/evdev" || true
+    fi
+    [ -f "$g/third_party/cpp/evdev/Android.bp" ] || { err "libevdev GameKeys tidak ada ($g/third_party/cpp/evdev)"; exit 1; }
+    if grep -qs 'vendor_available *: *true' "$g"/third_party/rust/*/Android.bp; then
+        sed -i 's/vendor_available *: *true/vendor: true/' "$g"/third_party/rust/*/Android.bp
+        info "Tambalan: crate rust GameKeys -> vendor: true"
+    fi
+}
+unpatch_source() {
+    git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
+}
+patch_source() {
+    fix_gamekey
+}
+
 # ------------------------------------------------------------------ sync
 do_sync() {
     mkdir -p "$SRC" && cd "$SRC" || exit 1
@@ -97,6 +120,7 @@ do_sync() {
     mkdir -p .repo/local_manifests
     curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
 
+    unpatch_source
     local n
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
@@ -113,6 +137,7 @@ do_sync() {
         info "Mengulang sync repo ingres yang belum lengkap"
         repo sync -c -j1 --force-sync device/xiaomi/ingres vendor/xiaomi/ingres kernel/xiaomi/sm8450 || true
     fi
+    patch_source
     ok "Source siap di $SRC"
 }
 
@@ -128,6 +153,7 @@ do_build() {
     [ "$jobs" -lt 2 ] && jobs=2
     info "Build dengan $jobs job (RAM ${ram_gb} GB, CPU $(nproc) core)"
 
+    patch_source
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
