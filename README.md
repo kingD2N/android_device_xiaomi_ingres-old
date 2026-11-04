@@ -66,3 +66,10 @@ pastikan firmware di HP sudah OS2.0.8.0 (atau versi HyperOS 2 terbaru) sebelum m
 Image firmware OS2.0.8.0 tersedia di release
 [ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM)
 untuk di-flash manual lewat fastboot (`fastboot flash <partisi>_a <partisi>.img` dan `_b`).
+
+## Paket tambahan
+
+Setiap build otomatis membawa: **GameKeys**, **LED** (app Leds + lampu status notifikasi/baterai),
+**Dolby Lunaris**, **JamesDSP**, dan **MIUI Camera**. Sumbernya ada di local manifest
+(`vendor/ingres/addons` = [kingD2N/LED_ingres_for_Notifikasi_system](https://github.com/kingD2N/LED_ingres_for_Notifikasi_system/tree/addons) branch `addons`).
+Matikan satu paket di `device.mk` sebelum baris addons, misal `INGRES_ADDONS_MIUICAMERA := false`.
