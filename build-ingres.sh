@@ -167,9 +167,20 @@ fix_gamekey() {
         sed -i 's/vendor_available *: *true/vendor: true/' "$g"/third_party/rust/*/Android.bp
         info "Tambalan: crate rust GameKeys -> vendor: true"
     fi
+    # AIDL Rust baru tidak lagi membuat ISettingsServiceDefaultRef (import tak terpakai)
+    if grep -qs 'ISettingsServiceDefaultRef' "$g/daemon/src/binder_service.rs"; then
+        sed -i 's/, *ISettingsServiceDefaultRef//' "$g/daemon/src/binder_service.rs"
+        info "Tambalan: GameKeys tanpa ISettingsServiceDefaultRef"
+    fi
+    # Android 17: rustutils::system_properties pindah ke rustutils::android::system_properties
+    if [ -f system/librustutils/rustutils/src/android/system_properties.rs ] \
+        && grep -qs 'rustutils::system_properties' "$g"/daemon/src/*.rs; then
+        sed -i 's/rustutils::system_properties/rustutils::android::system_properties/g' "$g"/daemon/src/*.rs
+        info "Tambalan: GameKeys -> rustutils::android::system_properties"
+    fi
 }
 unpatch_source() {
-    git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
+    git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
 }
 patch_source() {
     fix_gamekey
