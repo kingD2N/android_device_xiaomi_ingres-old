@@ -1,26 +1,34 @@
 #!/usr/bin/env bash
 #
-# Build LineageOS 24 untuk POCO F4 GT (ingres) - satu perintah.
+# Build LineageOS 24 (Android 17) untuk POCO F4 GT (ingres) - satu perintah.
 #
 #   bash build-ingres.sh            # sync + build (otomatis jalan di byobu)
 #   bash build-ingres.sh sync       # hanya sync source
 #   bash build-ingres.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
 #   bash build-ingres.sh status     # lihat progres build yang sedang jalan
+#   bash build-ingres.sh upload     # upload ulang isi ~/hasil-los24 ke GoFile
+#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-ingres.sh bersih ~/aospa   # hapus source ROM lain / folder lama
+#   bash build-ingres.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: JOBS=8 bash build-ingres.sh):
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ingres.sh):
 #   SRC=~/los24        folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
-#   VARIANT=userdebug  userdebug / user / eng
+#   VARIANT=user       user (rilis, default) / userdebug / eng
+#   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
+#   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
 
 set -uo pipefail
 
+ROM=los24
+ROM_NAME="LineageOS 24"
+ROM_MANIFEST="https://github.com/LineageOS/android"; ROM_BRANCH="lineage-24.0"
 SRC="${SRC:-$HOME/los24}"
-VARIANT="${VARIANT:-userdebug}"
+VARIANT="${VARIANT:-user}"
 SESSION="los24"
 LOG="$HOME/build.log"
-OUT_DIR="$HOME/hasil-los24"
 MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml"
+HASIL_DIR="$HOME/hasil-los24"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -41,14 +49,53 @@ if [ "$CMD" = "status" ]; then
     exit 0
 fi
 
+# ------------------------------------------------- bersihkan server
+if [ "$CMD" = "bersih" ]; then
+    shift
+    echo "Ruang disk sekarang:"
+    df -h "$HOME" | tail -n 1
+    echo
+    echo "Isi folder home (terbesar dulu):"
+    du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
+    echo
+    targets=""
+    for d in "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/.ccache" "$@"; do
+        [ -e "$d" ] || continue
+        case "$(readlink -f "$d")" in
+            "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
+        esac
+        targets="$targets $d"
+    done
+    if [ -z "$targets" ]; then
+        ok "Tidak ada folder lama untuk dihapus."
+        exit 0
+    fi
+    echo "Yang akan DIHAPUS PERMANEN:"
+    for d in $targets; do echo "   $d"; done
+    echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
+    read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
+    [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
+    for s in los24 aospa lunaris; do
+        [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
+        byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
+    done
+    info "Menghapus... (bisa 5-20 menit, jangan tutup Termius)"
+    # shellcheck disable=SC2086
+    rm -rf $targets
+    ok "Selesai. Ruang disk sekarang:"
+    df -h "$HOME" | tail -n 1
+    exit 0
+fi
+
 # ------------------------------------------- selalu jalan di dalam byobu
-if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ]; then
+if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" != "reset-ingres" ]; then
     command -v byobu >/dev/null || { err "byobu tidak ada di server"; exit 1; }
     if byobu ls 2>/dev/null | grep -q "^$SESSION"; then
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    byobu new-session -d -s "$SESSION" "bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
     echo "   Cek progres saja  : bash $SCRIPT status"
@@ -85,6 +132,25 @@ check_disk() {
     fi
 }
 
+# ------------------------------------------------- tambalan source
+# folder device/vendor/kernel xiaomi sisa percobaan lama (tidak ada di manifest)
+# tetap dibaca soong -> modul ganda ("multiple rules generate ..."). Pindahkan.
+move_leftovers() {
+    local known d bak="$HOME/los24-sisa-lama"
+    known=$(repo list -p 2>/dev/null) || return 0
+    [ -n "$known" ] || return 0
+    for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
+        [ -d "$d" ] || continue
+        echo "$known" | grep -qx "$d" && continue
+        # folder induk dari repo lain (mis. vendor/xiaomi/camera/...) jangan disentuh
+        echo "$known" | grep -q "^$d/" && continue
+        mkdir -p "$bak/$(dirname "$d")"
+        info "Memindahkan folder sisa lama: $d -> $bak/$d"
+        rm -rf "${bak:?}/$d"
+        mv "$d" "$bak/$d"
+    done
+}
+
 # GameKeys: libevdev (C) ada di submodule third_party/cpp/evdev (diambil lewat
 # local manifest). Crate rust-nya cuma dipakai gamekeyd (vendor), jadi dibuat
 # vendor-only agar tidak butuh varian core dari libevdev.
@@ -110,33 +176,72 @@ patch_source() {
 
 # ------------------------------------------------------------------ sync
 do_sync() {
+    # aturan server: hanya 1 source ROM per akun
+    local other
+    for other in "$HOME"/*/.repo; do
+        [ -d "$other" ] || continue
+        other="$(dirname "$other")"
+        [ "$(readlink -f "$other")" = "$(readlink -f "$SRC")" ] && continue
+        err "Ada source ROM lain: $other (server hanya mengizinkan 1 source ROM)."
+        echo "   Simpan dulu zip-nya kalau perlu, lalu hapus: bash $SCRIPT bersih $other"
+        exit 1
+    done
     mkdir -p "$SRC" && cd "$SRC" || exit 1
+    local cur_url cur_branch
+    cur_url=$(git -C .repo/manifests config remote.origin.url 2>/dev/null || true)
+    cur_branch=$(git -C .repo/manifests config branch.default.merge 2>/dev/null | sed 's#refs/heads/##' || true)
     if [ ! -d .repo ]; then
         check_disk 300
-        info "repo init LineageOS 24"
-        repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 \
+        info "repo init $ROM_NAME"
+        repo init -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
+            --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
+    elif [ "${cur_url%.git}" != "$ROM_MANIFEST" ] || { [ -n "$cur_branch" ] && [ "$cur_branch" != "$ROM_BRANCH" ]; }; then
+        info "Pindah manifest ke $ROM_NAME (source yang sama dipakai ulang)"
+        repo init -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
     fi
     mkdir -p .repo/local_manifests
+    # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
+    for f in .repo/local_manifests/*.xml; do
+        [ -e "$f" ] && [ "$(basename "$f")" != ingres.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+    done
     curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
 
+    # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
+    # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
+    reset_project() {
+        local rel="${1#"$SRC"/}"; rel="${rel%/.git}"; rel="${rel%/}"
+        case "$rel" in ""|/*|*..*) return ;; esac
+        info "Menghapus checkout lama: $rel"
+        rm -rf "${SRC:?}/$rel" "${SRC:?}/.repo/projects/$rel.git"
+    }
+
     unpatch_source
-    local n
+    local n slog="$HOME/sync-los24.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
-        if repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune; then
-            break
+        repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
+        [ "${PIPESTATUS[0]}" -eq 0 ] && break
+        if grep -q 'unsupported checkout state\|not a git repository\|already exists and is not' "$slog"; then
+            grep -o '/[^ :]*\.git: unsupported checkout state' "$slog" | sed 's/: unsupported checkout state//' \
+                | sort -u | while read -r d; do reset_project "$d"; done
+            continue
         fi
         [ "$n" -eq 3 ] && { err "repo sync gagal 3 kali. Coba lagi nanti: bash $SCRIPT sync"; exit 1; }
         sleep 30
     done
+    if grep -q 'unsupported checkout state' "$slog" 2>/dev/null; then
+        err "Masih ada checkout rusak. Jalankan: bash $SCRIPT reset-ingres  lalu  bash $SCRIPT"
+        exit 1
+    fi
 
     # pastikan bagian penting ingres benar-benar lengkap
-    if ! ls vendor/xiaomi/ingres/modem/modem.img.part00 >/dev/null 2>&1 \
+    if ! [ -f vendor/xiaomi/ingres/ingres-vendor.mk ] \
         || ! [ -f kernel/xiaomi/sm8450/arch/arm64/configs/vendor/ingres_GKI.config ]; then
         info "Mengulang sync repo ingres yang belum lengkap"
         repo sync -c -j1 --force-sync device/xiaomi/ingres vendor/xiaomi/ingres kernel/xiaomi/sm8450 || true
     fi
+    move_leftovers
     patch_source
     ok "Source siap di $SRC"
 }
@@ -153,14 +258,16 @@ do_build() {
     [ "$jobs" -lt 2 ] && jobs=2
     info "Build dengan $jobs job (RAM ${ram_gb} GB, CPU $(nproc) core)"
 
+    move_leftovers
     patch_source
+    info "Varian build: $VARIANT"
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
-    # shellcheck disable=SC1091
-    source build/envsetup.sh >/dev/null
-    breakfast ingres "$VARIANT" || { err "breakfast ingres gagal (cek local manifest / sync)"; exit 1; }
-
     local start rc
     start=$(date +%s)
+    info "ROM: $ROM_NAME"
+    # shellcheck disable=SC1091
+    source build/envsetup.sh >/dev/null
+    breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal (cek local manifest / sync)"; exit 1; }
     m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
@@ -180,14 +287,71 @@ do_build() {
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t $p/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
+    zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    mkdir -p "$OUT_DIR"
-    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$OUT_DIR"/ 2>/dev/null
-    (cd "$OUT_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
+    mkdir -p "$HASIL_DIR"
+    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
+    (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
     ok "BUILD BERHASIL"
-    ls -lh "$OUT_DIR"
-    echo "Ambil file di folder ~/hasil-los24 lewat SFTP Termius."
+    ls -lh "$HASIL_DIR"
+    if [ "${GOFILE:-1}" != 0 ]; then
+        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
+    else
+        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
+    fi
+}
+
+# ------------------------------------------------------------- GoFile
+gofile_put() {   # $1=file $2=folderId(opsional) $3=token(opsional) -> JSON
+    local args=(-sS --retry 3 --retry-delay 10 -F "file=@$1")
+    [ -n "$2" ] && args+=(-F "folderId=$2")
+    [ -n "$3" ] && args+=(-H "Authorization: Bearer $3")
+    curl "${args[@]}" https://upload.gofile.io/uploadfile
+}
+
+is_ok() {         # JSON di stdin berstatus ok?
+    python3 -c "import json,sys
+try: sys.exit(0 if json.load(sys.stdin).get('status')=='ok' else 1)
+except Exception: sys.exit(1)"
+}
+
+json_get() {     # $1=key -> nilai dari JSON di stdin (data.<key>)
+    python3 -c "import json,sys
+try: print(json.load(sys.stdin).get('data',{}).get('$1',''))
+except Exception: pass"
+}
+
+do_upload() {
+    local files=() f resp link folder token="${GOFILE_TOKEN:-}" linkfile="$HASIL_DIR/link-gofile.txt"
+    for f in "$HASIL_DIR"/*.zip "$HASIL_DIR"/*.sha256 "$HASIL_DIR"/*.img; do
+        [ -f "$f" ] && files+=("$f")
+    done
+    [ ${#files[@]} -gt 0 ] || { err "Tidak ada file di $HASIL_DIR untuk diupload"; return 1; }
+    info "Upload ${#files[@]} file ke GoFile (zip ROM paling lama, sabar)"
+    folder=""; link=""
+    : > "$linkfile"
+    for f in "${files[@]}"; do
+        info "Upload $(basename "$f") ($(du -h "$f" | cut -f1))"
+        resp=$(gofile_put "$f" "$folder" "$token")
+        if ! echo "$resp" | is_ok; then
+            # coba sekali lagi sebagai file terpisah
+            resp=$(gofile_put "$f" "" "${GOFILE_TOKEN:-}")
+        fi
+        if echo "$resp" | is_ok; then
+            [ -n "$folder" ] || folder=$(echo "$resp" | json_get parentFolder)
+            [ -n "$token" ] || token=$(echo "$resp" | json_get guestToken)
+            local page; page=$(echo "$resp" | json_get downloadPage)
+            [ -n "$link" ] || link="$page"
+            echo "$(basename "$f")  $page" >> "$linkfile"
+        else
+            err "Gagal upload $(basename "$f"): $(echo "$resp" | head -c 200)"
+            echo "$(basename "$f")  GAGAL" >> "$linkfile"
+        fi
+    done
+    echo
+    ok "Link GoFile (buka di browser HP untuk download):"
+    cat "$linkfile"
+    echo "Link juga tersimpan di $linkfile"
 }
 
 # ------------------------------------------------------------------ main
@@ -195,10 +359,21 @@ case "$CMD" in
     all)   check_tools; do_sync; do_build ;;
     sync)  check_tools; do_sync ;;
     build) check_tools; do_build ;;
+    upload) do_upload ;;
+    reset-ingres)
+        cd "$SRC" 2>/dev/null || { err "Folder $SRC tidak ada"; exit 1; }
+        for d in device/xiaomi/ingres device/xiaomi/sm8450-common hardware/xiaomi \
+                 vendor/xiaomi/ingres vendor/xiaomi/sm8450-common \
+                 kernel/xiaomi/sm8450 kernel/xiaomi/sm8450-modules kernel/xiaomi/sm8450-devicetrees; do
+            info "Menghapus $d"
+            rm -rf "${SRC:?}/$d" "${SRC:?}/.repo/projects/$d.git"
+        done
+        ok "Selesai. Lanjutkan dengan: bash $SCRIPT"
+        ;;
     clean)
-        info "Menghapus $SRC/out dan $OUT_DIR"
-        rm -rf "${SRC:?}/out" "$OUT_DIR"
+        info "Menghapus $SRC/out dan $HASIL_DIR"
+        rm -rf "${SRC:?}/out" "$HASIL_DIR"
         ok "Bersih. Ruang disk kosong: $(df -h --output=avail "$HOME" | tail -n 1)"
         ;;
-    *) err "Perintah tidak dikenal: $CMD (pakai: all | sync | build | clean | status)"; exit 1 ;;
+    *) err "Perintah tidak dikenal: $CMD (pakai: all | sync | build | upload | clean | status | bersih | reset-ingres)"; exit 1 ;;
 esac

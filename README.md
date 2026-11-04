@@ -38,10 +38,23 @@ Front camera | 20MP IMX596 in-display
 Cara paling mudah (skrip otomatis, jalan di byobu):
 
 ```bash
-curl -LO https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/build-ingres.sh
-bash build-ingres.sh          # sync + build
-bash build-ingres.sh status   # cek progres
+curl -fsSL -o ~/build-ingres.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/build-ingres.sh
+bash ~/build-ingres.sh          # sync + build (varian user)
+bash ~/build-ingres.sh status   # cek progres
 ```
+
+| Perintah | Fungsi |
+|---|---|
+| `bash ~/build-ingres.sh` | sync + build |
+| `bash ~/build-ingres.sh sync` / `build` | hanya sync / hanya build |
+| `bash ~/build-ingres.sh status` | lihat progres |
+| `bash ~/build-ingres.sh upload` | upload ulang hasil ke GoFile |
+| `bash ~/build-ingres.sh bersih [folder]` | hapus source ROM lain (default `~/lunaris`) |
+| `bash ~/build-ingres.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
+| `bash ~/build-ingres.sh clean` | hapus `out/` dan `~/hasil-los24` |
+
+Varian default **user**; debug: `VARIANT=userdebug bash ~/build-ingres.sh`. Hasil di `~/hasil-los24`
+dan otomatis diupload ke GoFile (matikan dengan `GOFILE=0`).
 
 Manual:
 
