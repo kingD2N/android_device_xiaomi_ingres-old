@@ -82,3 +82,10 @@ bash ~/build-lunaris.sh
 Manual: `repo init -u https://github.com/Lunaris-AOSP/android -b 16.2 --git-lfs`,
 salin `local_manifests/lunaris.xml` ke `.repo/local_manifests/`, `repo sync`,
 `. build/envsetup.sh`, `lunch lineage_ingres-bp4a-user`, `m bacon`.
+
+## Paket tambahan
+
+Setiap build otomatis membawa: **GameKeys**, **LED** (app Leds + lampu status notifikasi/baterai),
+**Dolby Lunaris**, **JamesDSP**, dan **MIUI Camera**. Sumbernya ada di local manifest
+(`vendor/ingres/addons` = [kingD2N/LED_ingres_for_Notifikasi_system](https://github.com/kingD2N/LED_ingres_for_Notifikasi_system/tree/addons) branch `addons`).
+Matikan satu paket di `device.mk` sebelum baris addons, misal `INGRES_ADDONS_MIUICAMERA := false`.
