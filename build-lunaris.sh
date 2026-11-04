@@ -154,8 +154,28 @@ move_leftovers() {
 }
 
 # (build-aospa.sh punya tambalan khusus AOSPA; Lunaris tidak butuh)
-unpatch_source() { :; }
-patch_source() { :; }
+# GameKeys: libevdev (C) ada di submodule third_party/cpp/evdev (diambil lewat
+# local manifest). Crate rust-nya cuma dipakai gamekeyd (vendor), jadi dibuat
+# vendor-only agar tidak butuh varian core dari libevdev.
+fix_gamekey() {
+    local g=vendor/xiaomi/gamekey
+    [ -d "$g" ] || return 0
+    if [ ! -f "$g/third_party/cpp/evdev/Android.bp" ]; then
+        info "Mengambil libevdev untuk GameKeys"
+        repo sync -c -j1 --force-sync "$g/third_party/cpp/evdev" || true
+    fi
+    [ -f "$g/third_party/cpp/evdev/Android.bp" ] || { err "libevdev GameKeys tidak ada ($g/third_party/cpp/evdev)"; exit 1; }
+    if grep -qs 'vendor_available *: *true' "$g"/third_party/rust/*/Android.bp; then
+        sed -i 's/vendor_available *: *true/vendor: true/' "$g"/third_party/rust/*/Android.bp
+        info "Tambalan: crate rust GameKeys -> vendor: true"
+    fi
+}
+unpatch_source() {
+    git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
+}
+patch_source() {
+    fix_gamekey
+}
 
 # ------------------------------------------------------------------ sync
 do_sync() {
