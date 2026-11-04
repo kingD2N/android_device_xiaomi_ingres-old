@@ -66,3 +66,19 @@ pastikan firmware di HP sudah OS2.0.8.0 (atau versi HyperOS 2 terbaru) sebelum m
 Image firmware OS2.0.8.0 tersedia di release
 [ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM)
 untuk di-flash manual lewat fastboot (`fastboot flash <partisi>_a <partisi>.img` dan `_b`).
+
+## Lunaris-AOSP 16.2 (branch `lunaris-16.2`)
+
+Branch ini = tree LineageOS 24 ingres + pengaturan Lunaris (`lineage_ingres.mk`:
+`WITH_GMS`, refresh rate 60/90/120, `ro.lunaris.maintainer`). Basis Lunaris 16.2 adalah
+LineageOS 23.2 (Android 16 QPR2), jadi device common, vendor common, dan hardware/xiaomi
+memakai `lineage-23.2`, sedangkan device/vendor/kernel ingres memakai branch LineageOS 24.
+
+```bash
+curl -fsSL -o ~/build-lunaris.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lunaris-16.2/build-lunaris.sh
+bash ~/build-lunaris.sh
+```
+
+Manual: `repo init -u https://github.com/Lunaris-AOSP/android -b 16.2 --git-lfs`,
+salin `local_manifests/lunaris.xml` ke `.repo/local_manifests/`, `repo sync`,
+`. build/envsetup.sh`, `lunch lineage_ingres-bp4a-user`, `m bacon`.

@@ -4,6 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+# Lunaris-AOSP (harus sebelum inherit vendor/lineage)
+# GApps bawaan; matikan dengan: export WITH_GMS=false sebelum lunch
+WITH_GMS ?= true
+TARGET_SUPPORTED_REFRESH_RATES := 60,90,120
+PRODUCT_SYSTEM_PROPERTIES += \
+    ro.lunaris.maintainer=kingD2N
+
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
