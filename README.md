@@ -56,6 +56,11 @@ breakfast ingres
 m bacon
 ```
 
+## Decrypt
+
+`/data` **tanpa enkripsi** secara default (`TARGET_DECRYPTED_DATA := true`): wajib Format Data saat pertama
+flash. Build terenkripsi: `DECRYPT=0 bash ~/build-lunaris.sh` / `DECRYPT=0 bash ~/build-ingres.sh`.
+
 ## Firmware
 
 ROM ini **tidak** membawa firmware (sama seperti ROM AOSP/LineageOS pada umumnya): zip hanya
