@@ -11,6 +11,9 @@ TARGET_SUPPORTED_REFRESH_RATES := 60,90,120
 PRODUCT_SYSTEM_PROPERTIES += \
     ro.lunaris.maintainer=kingD2N
 
+# /data tanpa enkripsi (decrypt). Wajib format data saat pertama kali flash.
+TARGET_DECRYPTED_DATA ?= true
+
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 

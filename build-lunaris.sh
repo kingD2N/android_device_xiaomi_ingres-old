@@ -17,6 +17,7 @@
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps)
+#   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
 
@@ -96,7 +97,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -269,6 +270,7 @@ do_build() {
     start=$(date +%s)
     info "ROM: $ROM_NAME"
     if [ "${GAPPS:-1}" = 0 ]; then export WITH_GMS=false; info "Build vanilla (tanpa GApps)"; else export WITH_GMS=true; info "Build dengan GApps"; fi
+    if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
     lunch "lineage_ingres-bp4a-$VARIANT" || { err "lunch lineage_ingres-bp4a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
