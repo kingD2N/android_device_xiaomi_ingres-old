@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    LineageOS 24.0 (Android 17) untuk POCO F4 GT / Redmi K50 Gaming (ingres).
-    Taruh di .repo/local_manifests/ingres.xml - langkah lengkap ada di README.md.
+    ASCP 17 (Android 17, Pixelify-AOSP/platform_manifest branch 17) untuk POCO F4 GT / Redmi K50 Gaming (ingres).
+    Taruh di .repo/local_manifests/ascp.xml - dipasang otomatis oleh build-ascp.sh.
+    Semua repo ingres memakai branch LineageOS 24 (ASCP juga memakai repo CAF lineage-24.0).
 -->
 <manifest>
   <remote name="d2n" fetch="https://github.com/kingD2N" />
@@ -9,7 +10,7 @@
   <remote name="muppets" fetch="https://github.com/TheMuppets" />
 
   <!-- Device // ingres -->
-  <project name="android_device_xiaomi_ingres-old" path="device/xiaomi/ingres" remote="d2n" revision="lineage-24.0" />
+  <project name="android_device_xiaomi_ingres-old" path="device/xiaomi/ingres" remote="d2n" revision="ascp-17" />
   <!-- Device // common -->
   <project name="Ingres_device_xiaomi_sm8450-common" path="device/xiaomi/sm8450-common" remote="d2n" revision="lineage-24.0" />
   <project name="android_hardware_xiaomi" path="hardware/xiaomi" remote="los" revision="lineage-24.0" />

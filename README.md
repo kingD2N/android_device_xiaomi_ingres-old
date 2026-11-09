@@ -23,11 +23,16 @@ Front camera | 20MP IMX596 in-display
 
 ![POCO F4 GT](https://i01.appmifile.com/webfile/globalimg/products/pc/poco-f4-gt/specs01.png "POCO F4 GT in all colours")
 
-## Build LineageOS 24.0 (Android 17)
+## Build ASCP 17 (Android 17, branch `ascp-17`)
+
+ASCP ([Pixelify-AOSP](https://github.com/Pixelify-AOSP/platform_manifest), branch `17`) berbasis AOSP
+Android 17 + PixelOS dan memakai repo CAF `lineage-24.0`, jadi tree ingres LineageOS 24 dipakai
+langsung. Bedanya: produk bernama `ingres` (bukan `lineage_ingres`) di `ingres.mk`, mewarisi
+`vendor/custom/config/common_full_phone.mk`, dan GApps Pixel selalu ikut.
 
 | Bagian | Repo | Branch |
 |---|---|---|
-| Device // ingres | [kingD2N/android_device_xiaomi_ingres-old](https://github.com/kingD2N/android_device_xiaomi_ingres-old) | lineage-24.0 |
+| Device // ingres | [kingD2N/android_device_xiaomi_ingres-old](https://github.com/kingD2N/android_device_xiaomi_ingres-old/tree/ascp-17) | ascp-17 |
 | Device // common | [kingD2N/Ingres_device_xiaomi_sm8450-common](https://github.com/kingD2N/Ingres_device_xiaomi_sm8450-common) | lineage-24.0 |
 | Vendor // ingres | kingD2N/proprietary_vendor_xiaomi_ingres | lineage-24.0 |
 | Vendor // common | [TheMuppets/proprietary_vendor_xiaomi_sm8450-common](https://github.com/TheMuppets/proprietary_vendor_xiaomi_sm8450-common) | lineage-24.0 |
@@ -38,41 +43,41 @@ Front camera | 20MP IMX596 in-display
 Cara paling mudah (skrip otomatis, jalan di byobu):
 
 ```bash
-curl -fsSL -o ~/build-ingres.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/build-ingres.sh
-bash ~/build-ingres.sh          # sync + build (varian user)
-bash ~/build-ingres.sh status   # cek progres
+curl -fsSL -o ~/build-ascp.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/ascp-17/build-ascp.sh
+bash ~/build-ascp.sh          # sync + build (varian user)
+bash ~/build-ascp.sh status   # cek progres
 ```
 
 | Perintah | Fungsi |
 |---|---|
-| `bash ~/build-ingres.sh` | sync + build |
-| `bash ~/build-ingres.sh sync` / `build` | hanya sync / hanya build |
-| `bash ~/build-ingres.sh status` | lihat progres |
-| `bash ~/build-ingres.sh upload` | upload ulang hasil ke GoFile |
-| `bash ~/build-ingres.sh bersih [folder]` | hapus source ROM lain (default `~/lunaris`) |
-| `bash ~/build-ingres.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
-| `bash ~/build-ingres.sh clean` | hapus `out/` dan `~/hasil-los24` |
+| `bash ~/build-ascp.sh` | sync + build |
+| `bash ~/build-ascp.sh sync` / `build` | hanya sync / hanya build |
+| `bash ~/build-ascp.sh status` | lihat progres |
+| `bash ~/build-ascp.sh upload` | upload ulang hasil ke GoFile |
+| `bash ~/build-ascp.sh bersih [folder]` | hapus source ROM lain (default `~/los24`, `~/lunaris`, `~/axion`) |
+| `bash ~/build-ascp.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
+| `bash ~/build-ascp.sh clean` | hapus `out/` dan `~/hasil-ascp` |
 
-Varian default **user**; debug: `VARIANT=userdebug bash ~/build-ingres.sh`. Hasil di `~/hasil-los24`
+Varian default **user**; debug: `VARIANT=userdebug bash ~/build-ascp.sh`. Hasil di `~/hasil-ascp`
 dan otomatis diupload ke GoFile (matikan dengan `GOFILE=0`).
 
 Manual:
 
 ```bash
-repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 --git-lfs --no-clone-bundle
+repo init -u https://github.com/Pixelify-AOSP/platform_manifest -b 17 --git-lfs --no-clone-bundle
 mkdir -p .repo/local_manifests
-curl -L -o .repo/local_manifests/ingres.xml \
-  https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml
+curl -L -o .repo/local_manifests/ascp.xml \
+  https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/ascp-17/local_manifests/ascp.xml
 repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 source build/envsetup.sh
-breakfast ingres
+lunch ingres-cp2a-user
 m bacon
 ```
 
 ## Decrypt
 
 `/data` **tanpa enkripsi** secara default (`TARGET_DECRYPTED_DATA := true`): wajib Format Data saat pertama
-flash. Build terenkripsi: `DECRYPT=0 bash ~/build-ingres.sh`.
+flash. Build terenkripsi: `DECRYPT=0 bash ~/build-ascp.sh`.
 
 ## Firmware
 

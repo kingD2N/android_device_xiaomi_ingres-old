@@ -7,7 +7,7 @@
 # Security patch level
 VENDOR_SECURITY_PATCH := 2025-04-01
 
-# /data tanpa enkripsi (lihat lineage_ingres.mk), dipakai recovery.fstab
+# /data tanpa enkripsi (lihat ingres.mk), dipakai recovery.fstab
 TARGET_DECRYPTED_DATA ?= true
 
 # Inherit from xiaomi sm8450-common

@@ -5,16 +5,20 @@
 #
 
 # /data tanpa enkripsi (decrypt). Wajib format data saat pertama kali flash.
-# Build terenkripsi: DECRYPT=0 bash <script build>
+# Build terenkripsi: DECRYPT=0 bash build-ascp.sh
 TARGET_DECRYPTED_DATA ?= true
 
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
-# Inherit from common lineage configuration
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+# Inherit from common ASCP configuration
+$(call inherit-product, vendor/custom/config/common_full_phone.mk)
 
-PRODUCT_NAME := lineage_ingres
+# Info maintainer di Tentang ponsel ASCP
+ASCP_MAINTAINER := kingD2N
+ASCP_MAINTAINER_LINK := https://github.com/kingD2N
+
+PRODUCT_NAME := ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi

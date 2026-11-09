@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 #
-# Build LineageOS 24 (Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build ASCP 17 terbaru (Android 17, berbasis AOSP + PixelOS, GApps Pixel bawaan)
+# untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-ingres.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-ingres.sh sync       # hanya sync source
-#   bash build-ingres.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-ingres.sh status     # lihat progres build yang sedang jalan
-#   bash build-ingres.sh upload     # upload ulang isi ~/hasil-los24 ke GoFile
-#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-ingres.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-ingres.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-ascp.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-ascp.sh sync       # hanya sync source
+#   bash build-ascp.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-ascp.sh status     # lihat progres build yang sedang jalan
+#   bash build-ascp.sh upload     # upload ulang isi ~/hasil-ascp ke GoFile
+#   bash build-ascp.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-ascp.sh bersih ~/axion   # hapus source ROM lain / folder lama
+#   bash build-ascp.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ingres.sh):
-#   SRC=~/los24        folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ascp.sh):
+#   SRC=~/ascp         folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
@@ -21,15 +22,15 @@
 
 set -uo pipefail
 
-ROM=los24
-ROM_NAME="LineageOS 24"
-ROM_MANIFEST="https://github.com/LineageOS/android"; ROM_BRANCH="lineage-24.0"
-SRC="${SRC:-$HOME/los24}"
+ROM=ascp
+ROM_NAME="ASCP 17"
+ROM_MANIFEST="https://github.com/Pixelify-AOSP/platform_manifest"; ROM_BRANCH="17"
+SRC="${SRC:-$HOME/ascp}"
 VARIANT="${VARIANT:-user}"
-SESSION="los24"
-LOG="$HOME/build.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml"
-HASIL_DIR="$HOME/hasil-los24"
+SESSION="ascp"
+LOG="$HOME/build-ascp.log"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/ascp-17/local_manifests/ascp.xml"
+HASIL_DIR="$HOME/hasil-ascp"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -60,7 +61,10 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/.ccache" "$@"; do
+    for d in "$HOME/los24" "$HOME/hasil-los24" "$HOME/build.log" "$HOME/los24-sisa-lama" \
+             "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
+             "$HOME/axion" "$HOME/hasil-axion" "$HOME/build-axion.log" "$HOME/axion-sisa-lama" \
+             "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -73,10 +77,10 @@ if [ "$CMD" = "bersih" ]; then
     fi
     echo "Yang akan DIHAPUS PERMANEN:"
     for d in $targets; do echo "   $d"; done
-    echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
+    echo "Simpan dulu zip ROM lama (mis. ~/hasil-los24, ~/hasil-axion) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris; do
+    for s in los24 aospa lunaris axion ascp; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -146,7 +150,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/ascp-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -159,7 +163,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/ascp-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -254,9 +258,9 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != ingres.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != ascp.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/ascp.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -268,7 +272,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-los24.log"
+    local n slog="$HOME/sync-ascp.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -304,7 +308,8 @@ do_sync() {
 # Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
 # lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
 fix_kernel_headers() {
-    local g=out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes
+    # ASCP: modul generator kernel ada di vendor/custom (LineageOS: vendor/lineage)
+    local g=out/soong/.intermediates/vendor/custom/build/soong/generated_kernel_includes
     [ -d "$g" ] || return 0
     if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
         || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
@@ -331,13 +336,18 @@ do_build() {
     fix_kernel_headers
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
-    set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
+    set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
     local start rc
     start=$(date +%s)
     info "ROM: $ROM_NAME"
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
-    breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # ASCP: nama produk = codename (tanpa lineage_), rilis dari vendor/custom/vars
+    local aosp_target_release=""
+    # shellcheck disable=SC1091
+    source vendor/custom/vars/aosp_target_release 2>/dev/null
+    aosp_target_release="${aosp_target_release:-cp2a}"
+    lunch "ingres-$aosp_target_release-$VARIANT" || { err "lunch ingres-$aosp_target_release-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
     m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
@@ -360,7 +370,7 @@ do_build() {
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
+    zip=$(ls -t "$p"/ASCP-v*-ingres-*.zip 2>/dev/null | grep -v -e '-fastboot' | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
     mkdir -p "$HASIL_DIR"
     cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
