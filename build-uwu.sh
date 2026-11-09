@@ -15,6 +15,7 @@
 # Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-uwu.sh):
 #   SRC=~/uwu          folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
+#   RBE=0              matikan remote build (RBE) server, compile lokal semua
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
@@ -103,7 +104,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -311,6 +312,30 @@ do_sync() {
 # Header kernel hasil generate (generated_kernel_includes) hanya dibuat ulang kalau
 # Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
 # lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
+# Hasil compile yang kosong (0 byte) tidak pernah valid: tertinggal dari build yang
+# terputus, disk penuh, atau unduhan RBE (remote_local_fallback) yang gagal. Ninja
+# menganggapnya sudah jadi, lalu modul berikutnya gagal, mis. "found invalid metadata
+# files for crate serde ... memory map must have a non-zero length". Hapus supaya
+# dibuat ulang.
+clean_broken_outputs() {
+    local d=out/soong/.intermediates n
+    [ -d "$d" ] || return 0
+    n=$(find "$d" -type f -size 0 \( -name '*.rlib' -o -name '*.rmeta' -o -name '*.jar' \
+          -o -name '*.so' -o -name '*.a' -o -name '*.o' -o -name '*.dex' -o -name '*.apk' \) \
+          -print -delete 2>/dev/null | wc -l)
+    [ "$n" -gt 0 ] && info "Menghapus $n hasil compile kosong (rusak) di out/, akan dibuat ulang"
+    # build sebelumnya gagal di KSP (kotlin-ksp-client-lib: "unresolved reference 'impl'"):
+    # jar KSP yang terbaca tidak lengkap -> sync ulang external/ksp + kotlinc dan
+    # buang hasil compile modul itu
+    if [ -f "$LOG" ] && grep -q "kotlin-ksp-client-lib\|devtools.ksp.impl" "$LOG"; then
+        info "Build lalu gagal di KSP: sync ulang external/ksp & external/kotlinc"
+        repo sync -c -j4 --force-sync --no-tags --no-clone-bundle external/ksp external/kotlinc >/dev/null 2>&1 \
+            || err "sync external/ksp gagal (lanjut build)"
+        rm -rf "$d/build/soong/cmd/kotlinc_incremental" "$d/external/ksp"
+    fi
+    return 0
+}
+
 fix_kernel_headers() {
     # uwuAOSP: modul generator kernel ada di vendor/uwu (LineageOS: vendor/lineage)
     local g=out/soong/.intermediates/vendor/uwu/build/soong/generated_kernel_includes
@@ -352,6 +377,11 @@ do_build() {
     move_leftovers
     patch_source
     fix_kernel_headers
+    clean_broken_outputs
+    if [ "${RBE:-}" = 0 ]; then
+        export USE_RBE=false RBE_JAVAC=false RBE_R8=false RBE_D8=false RBE_CLANG_TIDY=false
+        info "RBE dimatikan: semua compile lokal"
+    fi
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
