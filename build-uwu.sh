@@ -226,11 +226,61 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# uwuAOSP membuat image vendor lewat Soong (fsgen, uwu_ingres_generated_vendor_image).
+# fsgen mengumpulkan arsitektur per NAMA modul, jadi prebuilt vendor 64-bit yang
+# namanya sama dengan modul AOSP 32+64-bit (libomp dari prebuilts/clang) ikut diminta
+# varian arm 32-bit -> 'dependency "//vendor/xiaomi/ingres:libomp" ... missing variant'.
+# Ganti nama modul prebuilt itu (nama file .so tetap lewat "stem").
+# Daftar: libomp + nama yang dilaporkan fsgen di log build sebelumnya.
+fix_fsgen_dupes() {
+    local list="vendor/xiaomi/ingres:libomp" extra
+    if [ -f "$LOG" ]; then
+        extra=$(grep -oE 'dependency "//vendor/xiaomi/[^:"]+:[^"]+" of "[^"]*_generated_[a-z_]*image" missing variant' "$LOG" \
+                | sed -E 's#^dependency "//([^"]+)".*#\1#' | sort -u)
+        list="$list $extra"
+    fi
+    python3 -I - $list <<'PY'
+import os, re, sys
+done = set()
+for item in sys.argv[1:]:
+    d, _, name = item.partition(":")
+    if not name or item in done or not os.path.isdir(d):
+        continue
+    done.add(item)
+    bp = os.path.join(d, "Android.bp")
+    if not os.path.isfile(bp):
+        continue
+    s = open(bp).read()
+    new = name + "_ingres"
+    q = '"%s"' % name
+    if ('name: %s,' % q) not in s:
+        continue
+    # rujukan shared_libs / required + definisi modul di file yang sama
+    s = s.replace(q + ",", '"%s",' % new)
+    # stem supaya file terpasang tetap <name>.so
+    s = s.replace('name: "%s",' % new, 'name: "%s",\n    stem: %s,' % (new, q), 1)
+    open(bp, "w").write(s)
+    for f in os.listdir(d):
+        if f.endswith(".mk"):
+            fp = os.path.join(d, f)
+            t = open(fp).read()
+            t2 = re.sub(r'(?m)(^|\s)%s(?=\s|\\|$)' % re.escape(name), lambda m: m.group(1) + new, t)
+            if t2 != t:
+                open(fp, "w").write(t2)
+    print("[..] Tambalan fsgen: %s/%s -> %s (file tetap %s.so)" % (d, name, new, name))
+PY
+}
+
 unpatch_source() {
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
+    local v
+    for v in vendor/xiaomi/*/; do
+        git -C "$v" checkout -q -- Android.bp ':(glob)*.mk' 2>/dev/null || true
+    done
 }
 patch_source() {
+    fix_fsgen_dupes
     fix_dolby_vision
     fix_gamekey
 }
