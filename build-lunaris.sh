@@ -273,6 +273,19 @@ do_sync() {
     ok "Source siap di $SRC"
 }
 
+# Header kernel hasil generate (generated_kernel_includes) hanya dibuat ulang kalau
+# Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
+# lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
+fix_kernel_headers() {
+    local g=out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes
+    [ -d "$g" ] || return 0
+    if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
+        || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
+        info "Header kernel tidak lengkap, dibuat ulang"
+        rm -rf "$g"
+    fi
+}
+
 # ----------------------------------------------------------------- build
 do_build() {
     cd "$SRC" 2>/dev/null && [ -f build/envsetup.sh ] || { err "Source belum ada. Jalankan: bash $SCRIPT sync"; exit 1; }
@@ -288,6 +301,7 @@ do_build() {
     restore_leftovers
     move_leftovers
     patch_source
+    fix_kernel_headers
     info "Varian build: $VARIANT"
     set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
     local start rc
