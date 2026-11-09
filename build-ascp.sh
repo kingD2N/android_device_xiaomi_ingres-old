@@ -220,11 +220,28 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# ASCP: font di vendor/extra/fonts/imported juga sudah dipasang modul Soong
+# (vendor/extra/fonts/<nama>/Android.bp) -> "overriding commands for target
+# .../product/fonts/GoogleSans-Italic.ttf". Hapus salinan ganda di imported/.
+fix_ascp_fonts() {
+    local f=vendor/extra/fonts n dup=0
+    [ -d "$f/imported" ] || return 0
+    for n in $(grep -ho 'name: *"[^"]*\.[ot]tf"' "$f"/*/Android.bp 2>/dev/null | cut -d'"' -f2); do
+        [ -f "$f/imported/$n" ] || continue
+        rm -f "$f/imported/$n"
+        dup=$((dup + 1))
+    done
+    [ "$dup" -gt 0 ] && info "Tambalan: $dup font ganda di vendor/extra/fonts/imported dihapus"
+    return 0
+}
+
 unpatch_source() {
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
+    git -C vendor/extra checkout -q -- fonts/imported 2>/dev/null || true
 }
 patch_source() {
+    fix_ascp_fonts
     fix_dolby_vision
     fix_gamekey
 }
