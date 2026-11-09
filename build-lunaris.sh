@@ -16,7 +16,9 @@
 #   SRC=~/lunaris      folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
-#   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps)
+#   GAPPS=1            build dengan GApps (default)
+#   GAPPS=0            build vanilla tanpa GApps
+#   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -62,7 +64,11 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/los24" "$HOME/hasil-los24" "$HOME/build.log" "$HOME/.ccache" "$@"; do
+    for d in "$HOME/los24" "$HOME/hasil-los24" "$HOME/build.log" "$HOME/los24-sisa-lama" \
+             "$HOME/axion" "$HOME/hasil-axion" "$HOME/build-axion.log" "$HOME/axion-sisa-lama" \
+             "$HOME/ascp" "$HOME/hasil-ascp" "$HOME/build-ascp.log" "$HOME/ascp-sisa-lama" \
+             "$HOME/aospa" "$HOME/build-aospa.log" \
+             "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -75,7 +81,7 @@ if [ "$CMD" = "bersih" ]; then
     fi
     echo "Yang akan DIHAPUS PERMANEN:"
     for d in $targets; do echo "   $d"; done
-    echo "Simpan dulu zip ROM lama (mis. ~/hasil-los24) lewat SFTP kalau masih perlu."
+    echo "Simpan dulu zip ROM lama (mis. ~/hasil-los24, ~/hasil-aospa, ~/hasil-penguin) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
     for s in los24 aospa lunaris; do
@@ -324,14 +330,48 @@ do_build() {
     local start rc
     start=$(date +%s)
     info "ROM: $ROM_NAME"
-    if [ "${GAPPS:-1}" = 0 ]; then export WITH_GMS=false; info "Build vanilla (tanpa GApps)"; else export WITH_GMS=true; info "Build dengan GApps"; fi
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
+
+    local gms_list g
+    case "${GAPPS:-1}" in
+        both|2|semua) gms_list="true false" ;;
+        0|vanilla)    gms_list="false" ;;
+        *)            gms_list="true" ;;
+    esac
+    mkdir -p "$HASIL_DIR"
+    for g in $gms_list; do
+        build_variant "$g" "$jobs"
+    done
+    echo "Durasi total: $(( ($(date +%s) - start) / 60 )) menit"
+    ok "BUILD BERHASIL"
+    ls -lh "$HASIL_DIR"
+    if [ "${GOFILE:-1}" != 0 ]; then
+        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
+    else
+        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
+    fi
+}
+
+# Build satu varian: $1 = true (GApps) / false (vanilla), $2 = jumlah job
+build_variant() {
+    local gms="$1" jobs="$2" rc vstart name
+    vstart=$(date +%s)
+    export WITH_GMS="$gms"
+    if [ "$gms" = true ]; then name="GApps (GMS)"; else name="vanilla (tanpa GApps)"; fi
+    info "Build $name"
     lunch "lineage_ingres-bp4a-$VARIANT" || { err "lunch lineage_ingres-bp4a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # GApps <-> vanilla: file GApps lama masih tertinggal di out/ dan ikut masuk zip
+    # kalau tidak dibersihkan -> installclean saat varian berganti
+    if [ -f .gms-ingres ] && [ "$(cat .gms-ingres)" != "$gms" ]; then
+        info "Varian GApps berganti: installclean dulu"
+        m installclean >/dev/null 2>&1 || true
+    fi
+    echo "$gms" > .gms-ingres
     m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
-    echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
+    echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
 
     if [ "$rc" -ne 0 ]; then
         err "Build gagal. Ini penyebabnya (kirim screenshot bagian ini):"
@@ -350,19 +390,14 @@ do_build() {
         exit 1
     fi
 
-    local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/*.zip 2>/dev/null | grep -v -e target_files -e '-ota' | head -n 1)
+    local p="out/target/product/ingres" zip tag
+    if [ "$gms" = true ]; then tag=GMS; else tag=VANILLA; fi
+    zip=$(ls -t "$p"/Lunaris-AOSP-*-"$tag"-*.zip 2>/dev/null | head -n 1)
+    [ -n "$zip" ] || zip=$(ls -t "$p"/*.zip 2>/dev/null | grep -v -e target_files -e '-ota' | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    mkdir -p "$HASIL_DIR"
     cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
     (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
-    ok "BUILD BERHASIL"
-    ls -lh "$HASIL_DIR"
-    if [ "${GOFILE:-1}" != 0 ]; then
-        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
-    else
-        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
-    fi
+    ok "Selesai: $(basename "$zip")"
 }
 
 # ------------------------------------------------------------- GoFile

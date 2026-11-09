@@ -84,6 +84,10 @@ curl -fsSL -o ~/build-lunaris.sh https://raw.githubusercontent.com/kingD2N/andro
 bash ~/build-lunaris.sh
 ```
 
+Varian GApps: `GAPPS=1` dengan GApps (default), `GAPPS=0` vanilla, `GAPPS=both` dua-duanya
+berurutan (GApps lalu vanilla, `installclean` otomatis di antaranya). Nama zip:
+`Lunaris-AOSP-ingres-Community-<versi>-GMS-*.zip` / `...-VANILLA-*.zip`.
+
 Manual: `repo init -u https://github.com/Lunaris-AOSP/android -b 16.2 --git-lfs`,
 salin `local_manifests/lunaris.xml` ke `.repo/local_manifests/`, `repo sync`,
 `. build/envsetup.sh`, `lunch lineage_ingres-bp4a-user`, `m bacon`.
