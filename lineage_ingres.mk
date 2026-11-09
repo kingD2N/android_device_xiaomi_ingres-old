@@ -4,12 +4,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-# Lunaris-AOSP (harus sebelum inherit vendor/lineage)
-# GApps bawaan; matikan dengan: export WITH_GMS=false sebelum lunch
-WITH_GMS ?= true
-TARGET_SUPPORTED_REFRESH_RATES := 60,90,120
-PRODUCT_SYSTEM_PROPERTIES += \
-    ro.lunaris.maintainer=kingD2N
+# AxionOS (harus sebelum inherit vendor/lineage)
+# GApps diatur oleh perintah: axion ingres user gms|pico|core|va
+TARGET_DISABLE_EPPE := true
+
+# Info "Tentang ponsel" AxionOS (garis bawah tampil sebagai spasi)
+AXION_MAINTAINER := kingD2N
+AXION_PROCESSOR := Snapdragon_8_Gen_1
+AXION_CAMERA_REAR_INFO := 64,8,2
+AXION_CAMERA_FRONT_INFO := 20
 
 # /data tanpa enkripsi (decrypt). Wajib format data saat pertama kali flash.
 TARGET_DECRYPTED_DATA ?= true

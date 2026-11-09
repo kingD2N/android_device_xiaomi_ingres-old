@@ -59,7 +59,7 @@ m bacon
 ## Decrypt
 
 `/data` **tanpa enkripsi** secara default (`TARGET_DECRYPTED_DATA := true`): wajib Format Data saat pertama
-flash. Build terenkripsi: `DECRYPT=0 bash ~/build-lunaris.sh` / `DECRYPT=0 bash ~/build-ingres.sh`.
+flash. Build terenkripsi: `DECRYPT=0 bash ~/build-axion.sh`.
 
 ## Firmware
 
@@ -72,21 +72,24 @@ Image firmware OS2.0.8.0 tersedia di release
 [ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM)
 untuk di-flash manual lewat fastboot (`fastboot flash <partisi>_a <partisi>.img` dan `_b`).
 
-## Lunaris-AOSP 16.2 (branch `lunaris-16.2`)
+## AxionOS (branch `axion-23.2`)
 
-Branch ini = tree LineageOS 24 ingres + pengaturan Lunaris (`lineage_ingres.mk`:
-`WITH_GMS`, refresh rate 60/90/120, `ro.lunaris.maintainer`). Basis Lunaris 16.2 adalah
-LineageOS 23.2 (Android 16 QPR2), jadi device common, vendor common, dan hardware/xiaomi
-memakai `lineage-23.2`, sedangkan device/vendor/kernel ingres memakai branch LineageOS 24.
+Branch ini = tree LineageOS 24 ingres + pengaturan AxionOS (`lineage_ingres.mk`:
+`TARGET_DISABLE_EPPE`, `AXION_MAINTAINER`, `AXION_PROCESSOR`, info kamera 64/8/2 MP + 20 MP).
+AxionOS terbaru dibangun dari branch `lineage-23.2` (Android 16 QPR2), jadi device common,
+vendor common, dan hardware/xiaomi memakai `lineage-23.2`, sedangkan device/vendor/kernel
+ingres memakai branch LineageOS 24.
 
 ```bash
-curl -fsSL -o ~/build-lunaris.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lunaris-16.2/build-lunaris.sh
-bash ~/build-lunaris.sh
+curl -fsSL -o ~/build-axion.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/axion-23.2/build-axion.sh
+bash ~/build-axion.sh
 ```
 
-Manual: `repo init -u https://github.com/Lunaris-AOSP/android -b 16.2 --git-lfs`,
-salin `local_manifests/lunaris.xml` ke `.repo/local_manifests/`, `repo sync`,
-`. build/envsetup.sh`, `lunch lineage_ingres-bp4a-user`, `m bacon`.
+Pilihan GApps: `GAPPS=gms` (lengkap, default), `GAPPS=pico`, `GAPPS=core`, `GAPPS=0` (vanilla).
+
+Manual: `repo init -u https://github.com/AxionAOSP/android -b lineage-23.2 --git-lfs`,
+salin `local_manifests/axion.xml` ke `.repo/local_manifests/`, `repo sync`,
+`. build/envsetup.sh`, `gk -s` (sekali, membuat kunci), `axion ingres user gms`, `m bacon`.
 
 ## Paket tambahan
 

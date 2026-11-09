@@ -1,37 +1,38 @@
 #!/usr/bin/env bash
 #
-# Build Lunaris-AOSP 16.2 (Android 16 QPR2, berbasis LineageOS 23.2) untuk
+# Build AxionOS terbaru (branch lineage-23.2, Android 16 QPR2) untuk
 # POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-lunaris.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-lunaris.sh sync       # hanya sync source
-#   bash build-lunaris.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-lunaris.sh status     # lihat progres build yang sedang jalan
-#   bash build-lunaris.sh upload     # upload ulang isi ~/hasil-lunaris ke GoFile
-#   bash build-lunaris.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-lunaris.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-lunaris.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-axion.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-axion.sh sync       # hanya sync source
+#   bash build-axion.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-axion.sh status     # lihat progres build yang sedang jalan
+#   bash build-axion.sh upload     # upload ulang isi ~/hasil-axion ke GoFile
+#   bash build-axion.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-axion.sh bersih ~/lunaris # hapus source ROM lain / folder lama
+#   bash build-axion.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: GAPPS=0 bash build-lunaris.sh):
-#   SRC=~/lunaris      folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: GAPPS=0 bash build-axion.sh):
+#   SRC=~/axion        folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
-#   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps)
+#   GAPPS=gms          GApps lengkap (default)
+#   GAPPS=pico         GApps minimal / GAPPS=core  GApps inti / GAPPS=0  vanilla
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
 
 set -uo pipefail
 
-ROM=lunaris
-ROM_NAME="Lunaris-AOSP 16.2"
-ROM_MANIFEST="https://github.com/Lunaris-AOSP/android"; ROM_BRANCH="16.2"
-SRC="${SRC:-$HOME/lunaris}"
+ROM=axion
+ROM_NAME="AxionOS (lineage-23.2)"
+ROM_MANIFEST="https://github.com/AxionAOSP/android"; ROM_BRANCH="lineage-23.2"
+SRC="${SRC:-$HOME/axion}"
 VARIANT="${VARIANT:-user}"
-SESSION="lunaris"
-LOG="$HOME/build-lunaris.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lunaris-16.2/local_manifests/lunaris.xml"
-HASIL_DIR="$HOME/hasil-lunaris"
+SESSION="axion"
+LOG="$HOME/build-axion.log"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/axion-23.2/local_manifests/axion.xml"
+HASIL_DIR="$HOME/hasil-axion"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -62,7 +63,9 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/los24" "$HOME/hasil-los24" "$HOME/build.log" "$HOME/.ccache" "$@"; do
+    for d in "$HOME/los24" "$HOME/hasil-los24" "$HOME/build.log" \
+             "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" \
+             "$HOME/axion-sisa-lama" "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -75,10 +78,10 @@ if [ "$CMD" = "bersih" ]; then
     fi
     echo "Yang akan DIHAPUS PERMANEN:"
     for d in $targets; do echo "   $d"; done
-    echo "Simpan dulu zip ROM lama (mis. ~/hasil-los24) lewat SFTP kalau masih perlu."
+    echo "Simpan dulu zip ROM lama (mis. ~/hasil-los24, ~/hasil-lunaris) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris; do
+    for s in los24 aospa lunaris axion; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -97,7 +100,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-gms}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -148,7 +151,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/lunaris-sisa-lama"
+    local known d bak="$HOME/axion-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -161,7 +164,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/lunaris-sisa-lama"
+    local known d bak="$HOME/axion-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -176,7 +179,6 @@ move_leftovers() {
     done
 }
 
-# (build-aospa.sh punya tambalan khusus AOSPA; Lunaris tidak butuh)
 # GameKeys: libevdev (C) ada di submodule third_party/cpp/evdev (diambil lewat
 # local manifest). Crate rust-nya cuma dipakai gamekeyd (vendor), jadi dibuat
 # vendor-only agar tidak butuh varian core dari libevdev.
@@ -246,9 +248,9 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != lunaris.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != axion.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/lunaris.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/axion.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -260,7 +262,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-lunaris.log"
+    local n slog="$HOME/sync-axion.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -324,11 +326,25 @@ do_build() {
     local start rc
     start=$(date +%s)
     info "ROM: $ROM_NAME"
-    if [ "${GAPPS:-1}" = 0 ]; then export WITH_GMS=false; info "Build vanilla (tanpa GApps)"; else export WITH_GMS=true; info "Build dengan GApps"; fi
+    local gms
+    case "${GAPPS:-gms}" in
+        0|va|vanilla) gms=va;   info "Build vanilla (tanpa GApps)" ;;
+        pico)         gms=pico; info "Build dengan GApps pico (minimal)" ;;
+        core)         gms=core; info "Build dengan GApps core" ;;
+        *)            gms=gms;  info "Build dengan GApps lengkap" ;;
+    esac
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
-    lunch "lineage_ingres-bp4a-$VARIANT" || { err "lunch lineage_ingres-bp4a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # kunci tanda tangan sendiri (sekali saja; simpan, jangan dibuat ulang tiap build)
+    if [ ! -f vendor/lineage-priv/keys/releasekey.pk8 ]; then
+        info "Membuat kunci tanda tangan (gk -s) di vendor/lineage-priv/keys"
+        gk -s >/dev/null || { err "gk -s gagal membuat kunci"; exit 1; }
+    fi
+    # axion = lunch versi AxionOS (mengatur WITH_GMS & varian GApps)
+    axion ingres "$VARIANT" "$gms"
+    [ "$TARGET_PRODUCT" = lineage_ingres ] || { err "axion ingres $VARIANT $gms gagal (cek local manifest / sync)"; exit 1; }
+    # langsung m bacon (perintah 'ax' selalu installclean dulu = build ulang lebih lama)
     m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
@@ -351,7 +367,7 @@ do_build() {
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/*.zip 2>/dev/null | grep -v -e target_files -e '-ota' | head -n 1)
+    zip=$(ls -t "$p"/axion-*.zip 2>/dev/null | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
     mkdir -p "$HASIL_DIR"
     cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
