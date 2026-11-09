@@ -138,9 +138,31 @@ check_disk() {
 # ------------------------------------------------- tambalan source
 # folder device/vendor/kernel xiaomi sisa percobaan lama (tidak ada di manifest)
 # tetap dibaca soong -> modul ganda ("multiple rules generate ..."). Pindahkan.
+# path project dari manifest (repo list -p bisa tidak lengkap, jadi baca XML juga)
+manifest_paths() {
+    { repo list -p 2>/dev/null
+      cat .repo/manifests/*.xml .repo/manifests/snippets/*.xml .repo/local_manifests/*.xml 2>/dev/null \
+        | grep -o 'path="[^"]*"' | cut -d'"' -f2
+    } | sort -u
+}
+
+# folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
+restore_leftovers() {
+    local known d bak="$HOME/lunaris-sisa-lama"
+    [ -d "$bak" ] || return 0
+    known=$(manifest_paths)
+    for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
+        echo "$known" | grep -qx "$d" || continue
+        [ -e "$d" ] && continue
+        mkdir -p "$(dirname "$d")"
+        info "Mengembalikan $d dari $bak"
+        mv "$bak/$d" "$d"
+    done
+}
+
 move_leftovers() {
     local known d bak="$HOME/lunaris-sisa-lama"
-    known=$(repo list -p 2>/dev/null) || return 0
+    known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
         [ -d "$d" ] || continue
@@ -245,6 +267,7 @@ do_sync() {
         info "Mengulang sync repo ingres yang belum lengkap"
         repo sync -c -j1 --force-sync device/xiaomi/ingres vendor/xiaomi/ingres kernel/xiaomi/sm8450 || true
     fi
+    restore_leftovers
     move_leftovers
     patch_source
     ok "Source siap di $SRC"
@@ -262,6 +285,7 @@ do_build() {
     [ "$jobs" -lt 2 ] && jobs=2
     info "Build dengan $jobs job (RAM ${ram_gb} GB, CPU $(nproc) core)"
 
+    restore_leftovers
     move_leftovers
     patch_source
     info "Varian build: $VARIANT"
