@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 #
-# Build LineageOS 24 (Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build uwuAOSP 17 terbaru (Android 17, branch uwu-17.0, GApps Pixel bawaan)
+# untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-ingres.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-ingres.sh sync       # hanya sync source
-#   bash build-ingres.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-ingres.sh status     # lihat progres build yang sedang jalan
-#   bash build-ingres.sh upload     # upload ulang isi ~/hasil-los24 ke GoFile
-#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-ingres.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-ingres.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-uwu.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-uwu.sh sync       # hanya sync source
+#   bash build-uwu.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-uwu.sh status     # lihat progres build yang sedang jalan
+#   bash build-uwu.sh upload     # upload ulang isi ~/hasil-uwu ke GoFile
+#   bash build-uwu.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-uwu.sh bersih ~/axion   # hapus source ROM lain / folder lama
+#   bash build-uwu.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ingres.sh):
-#   SRC=~/los24        folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-uwu.sh):
+#   SRC=~/uwu          folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
@@ -21,15 +22,17 @@
 
 set -uo pipefail
 
-ROM=los24
-ROM_NAME="LineageOS 24"
-ROM_MANIFEST="https://github.com/LineageOS/android"; ROM_BRANCH="lineage-24.0"
-SRC="${SRC:-$HOME/los24}"
+ROM=uwu
+ROM_NAME="uwuAOSP 17"
+ROM_MANIFEST="https://github.com/uwuAOSP/platform_manifests"; ROM_BRANCH="uwu-17.0"
+# fork repo uwuAOSP: fetch dangkal (--depth) yang terputus tidak mengunduh ulang seluruh history
+REPO_ARGS=(--repo-url=https://github.com/UwUniverse/git-repo.git --repo-branch=main --no-repo-verify)
+SRC="${SRC:-$HOME/uwu}"
 VARIANT="${VARIANT:-user}"
-SESSION="los24"
-LOG="$HOME/build.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml"
-HASIL_DIR="$HOME/hasil-los24"
+SESSION="uwu"
+LOG="$HOME/build-uwu.log"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/uwu-17.0/local_manifests/uwu.xml"
+HASIL_DIR="$HOME/hasil-uwu"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -60,7 +63,12 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/.ccache" "$@"; do
+    for d in "$HOME/los24" "$HOME/hasil-los24" "$HOME/build.log" "$HOME/los24-sisa-lama" \
+             "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
+             "$HOME/axion" "$HOME/hasil-axion" "$HOME/build-axion.log" "$HOME/axion-sisa-lama" \
+             "$HOME/ascp" "$HOME/hasil-ascp" "$HOME/build-ascp.log" "$HOME/ascp-sisa-lama" \
+             "$HOME/aospa" "$HOME/build-aospa.log" \
+             "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -73,10 +81,10 @@ if [ "$CMD" = "bersih" ]; then
     fi
     echo "Yang akan DIHAPUS PERMANEN:"
     for d in $targets; do echo "   $d"; done
-    echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
+    echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris, ~/hasil-aospa) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris; do
+    for s in los24 aospa lunaris axion ascp uwu; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -146,7 +154,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/uwu-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -159,7 +167,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/uwu-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -244,19 +252,19 @@ do_sync() {
     if [ ! -d .repo ]; then
         check_disk 300
         info "repo init $ROM_NAME"
-        repo init -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
+        repo init "${REPO_ARGS[@]}" -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
     elif [ "${cur_url%.git}" != "$ROM_MANIFEST" ] || { [ -n "$cur_branch" ] && [ "$cur_branch" != "$ROM_BRANCH" ]; }; then
         info "Pindah manifest ke $ROM_NAME (source yang sama dipakai ulang)"
-        repo init -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
+        repo init "${REPO_ARGS[@]}" -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
     fi
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != ingres.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != uwu.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/uwu.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -268,7 +276,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-los24.log"
+    local n slog="$HOME/sync-uwu.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -304,7 +312,8 @@ do_sync() {
 # Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
 # lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
 fix_kernel_headers() {
-    local g=out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes
+    # uwuAOSP: modul generator kernel ada di vendor/uwu (LineageOS: vendor/lineage)
+    local g=out/soong/.intermediates/vendor/uwu/build/soong/generated_kernel_includes
     [ -d "$g" ] || return 0
     if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
         || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
@@ -314,6 +323,20 @@ fix_kernel_headers() {
 }
 
 # ----------------------------------------------------------------- build
+# baca properti uwuAOSP dari build.prop hasil build; $@ = nama properti (yang pertama terisi)
+uwu_prop() {
+    local k f v
+    for k in "$@"; do
+        for f in out/target/product/ingres/product/etc/build.prop out/target/product/ingres/system/build.prop \
+                 out/target/product/ingres/system_ext/etc/build.prop; do
+            [ -f "$f" ] || continue
+            v=$(grep -m1 "^$k=" "$f" | cut -d= -f2-)
+            [ -n "$v" ] && { echo "$v"; return 0; }
+        done
+    done
+    echo "UNOFFICIAL"
+}
+
 do_build() {
     cd "$SRC" 2>/dev/null && [ -f build/envsetup.sh ] || { err "Source belum ada. Jalankan: bash $SCRIPT sync"; exit 1; }
     if [ -d out/target/product/ingres ]; then check_disk 20; else check_disk 160; fi
@@ -331,14 +354,17 @@ do_build() {
     fix_kernel_headers
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
-    set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
+    set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
     local start rc
     start=$(date +%s)
     info "ROM: $ROM_NAME"
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
-    breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal (cek local manifest / sync)"; exit 1; }
-    m bacon -j"$jobs" 2>&1 | tee "$LOG"
+    # uwuAOSP: produk uwu_ingres; rilis (cp2a) diekspor envsetup dari build/release
+    local rel="${aosp_target_release:-cp2a}"
+    lunch "uwu_ingres-$rel-$VARIANT" || { err "lunch uwu_ingres-$rel-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # uwuAOSP tidak punya "m bacon": paket OTA dari m otapackage (uwu_ingres-ota.zip)
+    m otapackage -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
 
@@ -359,12 +385,16 @@ do_build() {
         exit 1
     fi
 
-    local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
-    [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
+    local p="out/target/product/ingres" zip name
+    zip="$p/uwu_ingres-ota.zip"
+    [ -s "$zip" ] || { err "Build selesai tapi $zip tidak ditemukan"; exit 1; }
+    # nama rilis seperti "uni otapackage": uwuAOSP-<versi>-<tanggal>-<tipe>-ingres-unsigned.zip
+    name="uwuAOSP-$(uwu_prop ro.uwu.release ro.uwu.build.version)-$(date -u +%Y%m%d)-$(uwu_prop ro.uwu.releasetype)-ingres-unsigned.zip"
+    name="${name//[^A-Za-z0-9._-]/}"
     mkdir -p "$HASIL_DIR"
-    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-    (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
+    cp "$zip" "$HASIL_DIR/$name"
+    cp $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
+    (cd "$HASIL_DIR" && sha256sum "$name" > "$name.sha256")
     ok "BUILD BERHASIL"
     ls -lh "$HASIL_DIR"
     if [ "${GOFILE:-1}" != 0 ]; then

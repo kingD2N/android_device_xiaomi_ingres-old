@@ -23,11 +23,17 @@ Front camera | 20MP IMX596 in-display
 
 ![POCO F4 GT](https://i01.appmifile.com/webfile/globalimg/products/pc/poco-f4-gt/specs01.png "POCO F4 GT in all colours")
 
-## Build LineageOS 24.0 (Android 17)
+## Build uwuAOSP 17 (Android 17, branch `uwu-17.0`)
+
+uwuAOSP ([uwuAOSP/platform_manifests](https://github.com/uwuAOSP/platform_manifests), branch `uwu-17.0`)
+berbasis AOSP `android-17.0.0_r1` dan memakai repo hardware LineageOS `lineage-24.0`, jadi tree ingres
+LineageOS 24 dipakai langsung. Bedanya: produk `uwu_ingres` di `uwu_ingres.mk` (mewarisi
+`vendor/uwu/config/common.mk` dengan `UWU_DEVICE_TYPE := phone`, `UWU_SUPPORTS_TELEPHONY := true`),
+lunch `uwu_ingres-cp2a-user`, paket dibuat dengan `m otapackage`, dan GApps Pixel selalu ikut.
 
 | Bagian | Repo | Branch |
 |---|---|---|
-| Device // ingres | [kingD2N/android_device_xiaomi_ingres-old](https://github.com/kingD2N/android_device_xiaomi_ingres-old) | lineage-24.0 |
+| Device // ingres | [kingD2N/android_device_xiaomi_ingres-old](https://github.com/kingD2N/android_device_xiaomi_ingres-old/tree/uwu-17.0) | uwu-17.0 |
 | Device // common | [kingD2N/Ingres_device_xiaomi_sm8450-common](https://github.com/kingD2N/Ingres_device_xiaomi_sm8450-common) | lineage-24.0 |
 | Vendor // ingres | kingD2N/proprietary_vendor_xiaomi_ingres | lineage-24.0 |
 | Vendor // common | [TheMuppets/proprietary_vendor_xiaomi_sm8450-common](https://github.com/TheMuppets/proprietary_vendor_xiaomi_sm8450-common) | lineage-24.0 |
@@ -38,41 +44,42 @@ Front camera | 20MP IMX596 in-display
 Cara paling mudah (skrip otomatis, jalan di byobu):
 
 ```bash
-curl -fsSL -o ~/build-ingres.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/build-ingres.sh
-bash ~/build-ingres.sh          # sync + build (varian user)
-bash ~/build-ingres.sh status   # cek progres
+curl -fsSL -o ~/build-uwu.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/uwu-17.0/build-uwu.sh
+bash ~/build-uwu.sh          # sync + build (varian user)
+bash ~/build-uwu.sh status   # cek progres
 ```
 
 | Perintah | Fungsi |
 |---|---|
-| `bash ~/build-ingres.sh` | sync + build |
-| `bash ~/build-ingres.sh sync` / `build` | hanya sync / hanya build |
-| `bash ~/build-ingres.sh status` | lihat progres |
-| `bash ~/build-ingres.sh upload` | upload ulang hasil ke GoFile |
-| `bash ~/build-ingres.sh bersih [folder]` | hapus source ROM lain (default `~/lunaris`) |
-| `bash ~/build-ingres.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
-| `bash ~/build-ingres.sh clean` | hapus `out/` dan `~/hasil-los24` |
+| `bash ~/build-uwu.sh` | sync + build |
+| `bash ~/build-uwu.sh sync` / `build` | hanya sync / hanya build |
+| `bash ~/build-uwu.sh status` | lihat progres |
+| `bash ~/build-uwu.sh upload` | upload ulang hasil ke GoFile |
+| `bash ~/build-uwu.sh bersih [folder]` | hapus source ROM lain (default `~/lunaris`) |
+| `bash ~/build-uwu.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
+| `bash ~/build-uwu.sh clean` | hapus `out/` dan `~/hasil-uwu` |
 
-Varian default **user**; debug: `VARIANT=userdebug bash ~/build-ingres.sh`. Hasil di `~/hasil-los24`
+Varian default **user**; debug: `VARIANT=userdebug bash ~/build-uwu.sh`. Hasil di `~/hasil-uwu`
 dan otomatis diupload ke GoFile (matikan dengan `GOFILE=0`).
 
 Manual:
 
 ```bash
-repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 --git-lfs --no-clone-bundle
+repo init --repo-url=https://github.com/UwUniverse/git-repo.git --repo-branch=main --no-repo-verify \
+  -u https://github.com/uwuAOSP/platform_manifests.git -b uwu-17.0 --git-lfs --no-clone-bundle
 mkdir -p .repo/local_manifests
-curl -L -o .repo/local_manifests/ingres.xml \
-  https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml
+curl -L -o .repo/local_manifests/uwu.xml \
+  https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/uwu-17.0/local_manifests/uwu.xml
 repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 source build/envsetup.sh
-breakfast ingres
-m bacon
+lunch uwu_ingres-cp2a-user
+m otapackage
 ```
 
 ## Decrypt
 
 `/data` **tanpa enkripsi** secara default (`TARGET_DECRYPTED_DATA := true`): wajib Format Data saat pertama
-flash. Build terenkripsi: `DECRYPT=0 bash ~/build-ingres.sh`.
+flash. Build terenkripsi: `DECRYPT=0 bash ~/build-uwu.sh`.
 
 ## Firmware
 

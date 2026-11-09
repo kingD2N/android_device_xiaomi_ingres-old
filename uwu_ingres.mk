@@ -5,16 +5,19 @@
 #
 
 # /data tanpa enkripsi (decrypt). Wajib format data saat pertama kali flash.
-# Build terenkripsi: DECRYPT=0 bash <script build>
+# Build terenkripsi: DECRYPT=0 bash build-uwu.sh
 TARGET_DECRYPTED_DATA ?= true
 
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
-# Inherit from common lineage configuration
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+# Inherit some common uwuAOSP stuff.
+UWU_DEVICE_TYPE := phone
+UWU_SUPPORTS_TELEPHONY := true
+UWU_MAINTAINER := kingD2N
+$(call inherit-product, vendor/uwu/config/common.mk)
 
-PRODUCT_NAME := lineage_ingres
+PRODUCT_NAME := uwu_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi
