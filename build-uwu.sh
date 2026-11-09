@@ -321,7 +321,7 @@ clean_broken_outputs() {
     local d=out/soong/.intermediates n
     [ -d "$d" ] || return 0
     n=$(find "$d" -type f -size 0 \( -name '*.rlib' -o -name '*.rmeta' -o -name '*.jar' \
-          -o -name '*.so' -o -name '*.a' -o -name '*.o' -o -name '*.dex' -o -name '*.apk' \) \
+          -o -name '*.so' -o -name '*.a' -o -name '*.o' -o -name '*.dex' -o -name '*.apk' -o -name 'flags.txt' \) \
           -print -delete 2>/dev/null | wc -l)
     [ "$n" -gt 0 ] && info "Menghapus $n hasil compile kosong (rusak) di out/, akan dibuat ulang"
     # jar terpotong ("Invalid or corrupt jarfile .../metalava.jar"): cek direktori ZIP-nya
@@ -340,6 +340,18 @@ for line in sys.stdin:
             pass
 print(bad)')
     [ "${n:-0}" -gt 0 ] && info "Menghapus $n file jar rusak di out/, akan dibuat ulang"
+    # build sebelumnya gagal karena hasil compile rusak (header dari flags.txt hilang,
+    # rlib/jar terpotong): buang hasil compile modul yang gagal supaya dibuat ulang
+    if [ -f "$LOG" ] && grep -q -e "file not found" -e "found invalid metadata files" \
+            -e "Invalid or corrupt jarfile" -e "non-zero length" "$LOG"; then
+        local m dir cnt=0
+        while read -r m; do
+            dir="$d/${m#//}"; dir="${dir/://}"
+            [ -d "$dir" ] || continue
+            rm -rf "$dir"; cnt=$((cnt + 1))
+        done < <(grep -o '^FAILED: //[^ ]*' "$LOG" | cut -d' ' -f2 | sort -u)
+        [ "$cnt" -gt 0 ] && info "Menghapus hasil compile $cnt modul yang gagal di build lalu (akan dibuat ulang)"
+    fi
     # build sebelumnya gagal di KSP (kotlin-ksp-client-lib: "unresolved reference 'impl'"):
     # jar KSP yang terbaca tidak lengkap -> sync ulang external/ksp + kotlinc dan
     # buang hasil compile modul itu
