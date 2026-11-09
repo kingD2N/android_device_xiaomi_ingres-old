@@ -15,7 +15,8 @@
 # Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-uwu.sh):
 #   SRC=~/uwu          folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
-#   RBE=0              matikan remote build (RBE) server, compile lokal semua
+#   RBE=1              pakai remote build (RBE) server (default: mati, compile lokal;
+#                      hasil unduhan RBE di server ini berulang kali rusak)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
@@ -340,10 +341,32 @@ for line in sys.stdin:
             pass
 print(bad)')
     [ "${n:-0}" -gt 0 ] && info "Menghapus $n file jar rusak di out/, akan dibuat ulang"
+    # .so/.o/.a terpotong ("ld.lld: error: .../libui.so: unknown file type"): cek header-nya
+    n=$(find "$d" out/host/linux-x86/lib64 -type f \( -name '*.so' -o -name '*.o' -o -name '*.a' \) \
+          -size +0 2>/dev/null | python3 -I -c '
+import sys, os
+bad = 0
+for line in sys.stdin:
+    f = line.rstrip("\n")
+    try:
+        with open(f, "rb") as h:
+            head = h.read(8)
+        if f.endswith(".a"):
+            ok = head in (b"!<arch>\n", b"!<thin>\n")
+        else:
+            # ELF, bitcode LLVM (objek LTO), atau skrip linker teks (INPUT(...), /* ... */)
+            ok = head[:4] in (b"\x7fELF", b"BC\xc0\xde", b"\xde\xc0\x17\x0b") or \
+                 head.lstrip()[:2] == b"/*" or head.lstrip()[:5] in (b"INPUT", b"GROUP", b"OUTPU")
+        if not ok:
+            os.remove(f); bad += 1
+    except OSError:
+        pass
+print(bad)')
+    [ "${n:-0}" -gt 0 ] && info "Menghapus $n file .so/.o/.a rusak di out/, akan dibuat ulang"
     # build sebelumnya gagal karena hasil compile rusak (header dari flags.txt hilang,
     # rlib/jar terpotong): buang hasil compile modul yang gagal supaya dibuat ulang
     if [ -f "$LOG" ] && grep -q -e "file not found" -e "found invalid metadata files" \
-            -e "Invalid or corrupt jarfile" -e "non-zero length" "$LOG"; then
+            -e "Invalid or corrupt jarfile" -e "non-zero length" -e "unknown file type" "$LOG"; then
         local m dir cnt=0
         while read -r m; do
             dir="$d/${m#//}"; dir="${dir/://}"
@@ -409,9 +432,12 @@ do_build() {
     patch_source
     fix_kernel_headers
     clean_broken_outputs
-    if [ "${RBE:-}" = 0 ]; then
-        export USE_RBE=false RBE_JAVAC=false RBE_R8=false RBE_D8=false RBE_CLANG_TIDY=false
-        info "RBE dimatikan: semua compile lokal"
+    if [ "${RBE:-0}" != 1 ]; then
+        export USE_RBE=false USE_REWRAPPER=false RBE_JAVAC=false RBE_R8=false RBE_D8=false \
+            RBE_CLANG_TIDY=false RBE_METALAVA=false RBE_ABI_DUMPER=false RBE_ABI_LINKER=false
+        info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
+    else
+        info "RBE server dipakai (RBE=1)"
     fi
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
