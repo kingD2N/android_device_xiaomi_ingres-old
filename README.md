@@ -31,7 +31,7 @@ Front camera | 20MP IMX596 in-display
 | Device // common | [kingD2N/Ingres_device_xiaomi_sm8450-common](https://github.com/kingD2N/Ingres_device_xiaomi_sm8450-common) | lineage-24.0 |
 | Vendor // ingres | kingD2N/proprietary_vendor_xiaomi_ingres | lineage-24.0 |
 | Vendor // common | [TheMuppets/proprietary_vendor_xiaomi_sm8450-common](https://github.com/TheMuppets/proprietary_vendor_xiaomi_sm8450-common) | lineage-24.0 |
-| Kernel | [kingD2N/android_kernel_xiaomi_sm8450](https://github.com/kingD2N/android_kernel_xiaomi_sm8450) | lineage-24.0 |
+| Kernel (Melt) | [kingD2N/kernel_source_Melt_xiaomi_ingres](https://github.com/kingD2N/kernel_source_Melt_xiaomi_ingres) | melt-MIX-rom |
 | Kernel module | [LineageOS/android_kernel_xiaomi_sm8450-modules](https://github.com/LineageOS/android_kernel_xiaomi_sm8450-modules) | lineage-24.0 |
 | Kernel device tree | [kingD2N/android_kernel_xiaomi_sm8450-devicetrees](https://github.com/kingD2N/android_kernel_xiaomi_sm8450-devicetrees) | lineage-24.0 |
 
