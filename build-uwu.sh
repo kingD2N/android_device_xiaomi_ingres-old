@@ -324,6 +324,22 @@ clean_broken_outputs() {
           -o -name '*.so' -o -name '*.a' -o -name '*.o' -o -name '*.dex' -o -name '*.apk' \) \
           -print -delete 2>/dev/null | wc -l)
     [ "$n" -gt 0 ] && info "Menghapus $n hasil compile kosong (rusak) di out/, akan dibuat ulang"
+    # jar terpotong ("Invalid or corrupt jarfile .../metalava.jar"): cek direktori ZIP-nya
+    n=$(find out/host/linux-x86/framework "$d" -type f -name '*.jar' -size +0 2>/dev/null | python3 -I -c '
+import sys, zipfile, os
+bad = 0
+for line in sys.stdin:
+    f = line.rstrip("\n")
+    try:
+        with zipfile.ZipFile(f) as z:
+            z.infolist()
+    except Exception:
+        try:
+            os.remove(f); bad += 1
+        except OSError:
+            pass
+print(bad)')
+    [ "${n:-0}" -gt 0 ] && info "Menghapus $n file jar rusak di out/, akan dibuat ulang"
     # build sebelumnya gagal di KSP (kotlin-ksp-client-lib: "unresolved reference 'impl'"):
     # jar KSP yang terbaca tidak lengkap -> sync ulang external/ksp + kotlinc dan
     # buang hasil compile modul itu
@@ -364,7 +380,10 @@ uwu_prop() {
 
 do_build() {
     cd "$SRC" 2>/dev/null && [ -f build/envsetup.sh ] || { err "Source belum ada. Jalankan: bash $SCRIPT sync"; exit 1; }
-    if [ -d out/target/product/ingres ]; then check_disk 20; else check_disk 160; fi
+    # out/ dari build yang belum pernah selesai masih butuh banyak ruang
+    if [ -s out/target/product/ingres/uwu_ingres-ota.zip ]; then check_disk 30
+    elif [ -d out/target/product/ingres ]; then check_disk 100
+    else check_disk 160; fi
 
     local jobs ram_gb
     ram_gb=$(free -g | awk '/^Mem:/{print $2}')
@@ -400,6 +419,12 @@ do_build() {
 
     if [ "$rc" -ne 0 ]; then
         err "Build gagal. Ini penyebabnya (kirim screenshot bagian ini):"
+        local free_gb
+        free_gb=$(df -BG --output=avail "$SRC" | tail -n 1 | tr -dc '0-9')
+        echo "Sisa disk: ${free_gb:-?} GB"
+        if [ "${free_gb:-0}" -lt 15 ]; then
+            err "Disk hampir penuh: file hasil compile bisa terpotong/rusak. Kosongkan dulu (bash $SCRIPT bersih / clean)"
+        fi
         echo "------------------------------------------------------------"
         # baris progres "[ 23% ...]" berisi nama modul (mis. libthiserror) -> buang
         { grep -n -A12 '^FAILED: ' "$LOG" | grep -v -E '^[0-9]+[-:]\[ *[0-9]+% ' | head -n 40
