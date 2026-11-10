@@ -496,8 +496,12 @@ do_build() {
     # RBE diatur SETELAH envsetup/lunch (vendorsetup.sh atau profil server bisa menyalakannya lagi)
     local rbe_state
     if [ "${RBE:-0}" != 1 ]; then
-        export USE_RBE=false USE_REWRAPPER=false NOSTART_RBE=true RBE_JAVAC=false RBE_R8=false \
-            RBE_D8=false RBE_CLANG_TIDY=false RBE_METALAVA=false RBE_ABI_DUMPER=false RBE_ABI_LINKER=false
+        # buang semua setelan RBE dari profil server (RBE_DIR, RBE_CXX_EXEC_STRATEGY, ...)
+        # dan file konfigurasi env yang bisa mengisinya lagi
+        local ev
+        for ev in $(compgen -e | grep -E '^RBE_'); do unset "$ev"; done
+        unset ANDROID_BUILD_ENVIRONMENT_CONFIG ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR
+        export USE_RBE=false USE_REWRAPPER=false NOSTART_RBE=true
         # server juga menyuntik rewrapper lewat CC_WRAPPER (dan JAVAC_WRAPPER) untuk
         # setiap compile C/C++; tanpa reproxy hasilnya "-server_address cannot be empty".
         # Buang bagian rewrapper, sisakan ccache kalau ada.
@@ -513,6 +517,7 @@ do_build() {
         done
         rbe_state=off
         info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
+        info "Env build: $(env | grep -E '^(USE_RBE|USE_REWRAPPER|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|USE_CCACHE|CCACHE_EXEC)=' | tr '\n' ' ')"
     else
         rbe_state=on
         info "RBE server dipakai (RBE=1)"
@@ -520,7 +525,9 @@ do_build() {
     # aturan rewrapper tersimpan di file ninja Soong: kalau status RBE berganti,
     # paksa Soong membuat ulang file ninja supaya perintah compile ikut berubah
     rbe_state="$rbe_state ${CC_WRAPPER:-}"
-    if [ "$(cat .rbe-ingres 2>/dev/null)" != "$rbe_state" ]; then
+    # juga kalau build lalu masih gagal karena rewrapper tanpa reproxy
+    if [ "$(cat .rbe-ingres 2>/dev/null)" != "$rbe_state" ] || \
+       { [ "${rbe_state%% *}" = off ] && [ -f "$LOG" ] && grep -q "server_address cannot be empty" "$LOG"; }; then
         rm -f out/soong/build.*.ninja out/soong/build.*.ninja.d 2>/dev/null
         info "Status RBE berganti (${rbe_state%% *}): file ninja Soong dibuat ulang"
     fi
@@ -529,7 +536,12 @@ do_build() {
     m otapackage -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     if [ "${rbe_state%% *}" = off ] && grep -q "/rewrapper " "$LOG"; then
-        err "Perintah build masih memakai rewrapper (RBE) walau RBE=0. Kirim output: env | grep -i rbe"
+        err "Perintah build masih memakai rewrapper (RBE) walau RBE mati. Screenshot info di bawah ini:"
+        echo "--- env ---"; env | grep -iE '^(USE_RBE|USE_REWRAPPER|NOSTART_RBE|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|RBE_[A-Z_]*|ANDROID_BUILD_ENVIRONMENT_CONFIG[A-Z_]*)=' | cut -c1-160
+        echo "--- rewrapper di ninja Soong: $(grep -c rewrapper out/soong/build.uwu_ingres.ninja 2>/dev/null || echo '?') baris"
+        echo "--- env yang dipakai Soong ---"
+        grep -hoE '"(USE_RBE|USE_REWRAPPER|CC_WRAPPER|RBE_WRAPPER)"[^,}]*' out/soong/soong.environment.used.uwu_ingres* 2>/dev/null | head -n 8 | cut -c1-160
+        ls -la buildspec.mk 2>/dev/null && grep -n -i "rbe\|wrapper" buildspec.mk
     fi
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
 
