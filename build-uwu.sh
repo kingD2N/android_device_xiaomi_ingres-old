@@ -482,13 +482,6 @@ do_build() {
     patch_source
     fix_kernel_headers
     clean_broken_outputs
-    if [ "${RBE:-0}" != 1 ]; then
-        export USE_RBE=false USE_REWRAPPER=false RBE_JAVAC=false RBE_R8=false RBE_D8=false \
-            RBE_CLANG_TIDY=false RBE_METALAVA=false RBE_ABI_DUMPER=false RBE_ABI_LINKER=false
-        info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
-    else
-        info "RBE server dipakai (RBE=1)"
-    fi
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
@@ -500,9 +493,30 @@ do_build() {
     # uwuAOSP: produk uwu_ingres; rilis (cp2a) diekspor envsetup dari build/release
     local rel="${aosp_target_release:-cp2a}"
     lunch "uwu_ingres-$rel-$VARIANT" || { err "lunch uwu_ingres-$rel-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # RBE diatur SETELAH envsetup/lunch (vendorsetup.sh atau profil server bisa menyalakannya lagi)
+    local rbe_state
+    if [ "${RBE:-0}" != 1 ]; then
+        export USE_RBE=false USE_REWRAPPER=false NOSTART_RBE=true RBE_JAVAC=false RBE_R8=false \
+            RBE_D8=false RBE_CLANG_TIDY=false RBE_METALAVA=false RBE_ABI_DUMPER=false RBE_ABI_LINKER=false
+        rbe_state=off
+        info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
+    else
+        rbe_state=on
+        info "RBE server dipakai (RBE=1)"
+    fi
+    # aturan rewrapper tersimpan di file ninja Soong: kalau status RBE berganti,
+    # paksa Soong membuat ulang file ninja supaya perintah compile ikut berubah
+    if [ "$(cat .rbe-ingres 2>/dev/null)" != "$rbe_state" ]; then
+        rm -f out/soong/build.*.ninja out/soong/build.*.ninja.d 2>/dev/null
+        info "Status RBE berganti ($rbe_state): file ninja Soong dibuat ulang"
+    fi
+    echo "$rbe_state" > .rbe-ingres
     # uwuAOSP tidak punya "m bacon": paket OTA dari m otapackage (uwu_ingres-ota.zip)
     m otapackage -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
+    if [ "$rbe_state" = off ] && grep -q "/rewrapper " "$LOG"; then
+        err "Perintah build masih memakai rewrapper (RBE) walau RBE=0. Kirim output: env | grep -i rbe"
+    fi
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
 
     if [ "$rc" -ne 0 ]; then
