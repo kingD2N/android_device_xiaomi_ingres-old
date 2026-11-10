@@ -515,10 +515,22 @@ do_build() {
                     info "$w tanpa rewrapper: ${keep:-(kosong)}" ;;
             esac
         done
+        # Make (build/make/core/rbe.mk) memasang rewrapper ke CC_WRAPPER kalau
+        # USE_REWRAPPER/RBE_DIR diisi di makefile, mis. buildspec.mk dari server:
+        # nilai di makefile mengalahkan env, jadi singkirkan sementara
+        if [ -f buildspec.mk ] && grep -qiE 'RBE|REWRAPPER' buildspec.mk; then
+            mv -f buildspec.mk buildspec.mk.rbe-off
+            info "buildspec.mk berisi setelan RBE: disingkirkan ke buildspec.mk.rbe-off"
+        fi
+        local rbe_mk
+        rbe_mk=$(grep -rlsE '^[[:space:]]*(export[[:space:]]+)?(USE_RBE|USE_REWRAPPER|RBE_DIR)[[:space:]]*[:?+]?=' \
+                 --include='*.mk' device vendor product 2>/dev/null | grep -v '^vendor/uwu/' | head -n 5)
+        [ -n "$rbe_mk" ] && info "Makefile yang mengisi USE_RBE/USE_REWRAPPER/RBE_DIR: $(echo $rbe_mk)"
         rbe_state=off
         info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
         info "Env build: $(env | grep -E '^(USE_RBE|USE_REWRAPPER|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|USE_CCACHE|CCACHE_EXEC)=' | tr '\n' ' ')"
     else
+        [ -f buildspec.mk.rbe-off ] && [ ! -f buildspec.mk ] && mv -f buildspec.mk.rbe-off buildspec.mk
         rbe_state=on
         info "RBE server dipakai (RBE=1)"
     fi
@@ -537,11 +549,20 @@ do_build() {
     rc=${PIPESTATUS[0]}
     if [ "${rbe_state%% *}" = off ] && grep -q "/rewrapper " "$LOG"; then
         err "Perintah build masih memakai rewrapper (RBE) walau RBE mati. Screenshot info di bawah ini:"
+        {
         echo "--- env ---"; env | grep -iE '^(USE_RBE|USE_REWRAPPER|NOSTART_RBE|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|RBE_[A-Z_]*|ANDROID_BUILD_ENVIRONMENT_CONFIG[A-Z_]*)=' | cut -c1-160
         echo "--- rewrapper di ninja Soong: $(grep -c rewrapper out/soong/build.uwu_ingres.ninja 2>/dev/null || echo '?') baris"
         echo "--- env yang dipakai Soong ---"
         grep -hoE '"(USE_RBE|USE_REWRAPPER|CC_WRAPPER|RBE_WRAPPER)"[^,}]*' out/soong/soong.environment.used.uwu_ingres* 2>/dev/null | head -n 8 | cut -c1-160
-        ls -la buildspec.mk 2>/dev/null && grep -n -i "rbe\|wrapper" buildspec.mk
+        ls -la buildspec.mk* 2>/dev/null
+        echo "--- makefile yang mengisi RBE ---"
+        grep -rnsE '^[[:space:]]*(export[[:space:]]+)?(USE_RBE|USE_REWRAPPER|RBE_DIR|CC_WRAPPER)[[:space:]]*[:?+]?=' \
+            --include='*.mk' buildspec.mk* device vendor product build/make/core 2>/dev/null \
+            | grep -v -e 'core/rbe.mk' -e 'core/ccache.mk' | head -n 8 | cut -c1-160
+        echo "--- CC_WRAPPER di ninja Soong ---"
+        grep -m1 -o 'CcWrapper = .\{0,120\}' out/soong/build.uwu_ingres.ninja 2>/dev/null
+        } 2>&1 | tee "$HOME/rbe-diag.txt"
+        echo "Info ini juga tersimpan di ~/rbe-diag.txt (kirim: cat ~/rbe-diag.txt)"
     fi
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
 
