@@ -540,8 +540,12 @@ do_build() {
     # juga kalau build lalu masih gagal karena rewrapper tanpa reproxy
     if [ "$(cat .rbe-ingres 2>/dev/null)" != "$rbe_state" ] || \
        { [ "${rbe_state%% *}" = off ] && [ -f "$LOG" ] && grep -q "server_address cannot be empty" "$LOG"; }; then
-        rm -f out/soong/build.*.ninja out/soong/build.*.ninja.d 2>/dev/null
-        info "Status RBE berganti (${rbe_state%% *}): file ninja Soong dibuat ulang"
+        # semua file analisis (ninja Soong + Kati + gabungan, catatan env Soong, variabel
+        # produk) dibuang supaya tidak ada perintah lama ber-rewrapper yang tersisa;
+        # hasil compile di out/ tetap dipakai
+        rm -f out/soong/build.*.ninja* out/soong/soong.environment.used.* out/soong/soong.*.variables \
+              out/build-*.ninja* out/combined-*.ninja* out/ninja-*.sh 2>/dev/null
+        info "Status RBE berganti (${rbe_state%% *}): analisis build diulang (beberapa menit)"
     fi
     echo "$rbe_state" > .rbe-ingres
     # uwuAOSP tidak punya "m bacon": paket OTA dari m otapackage (uwu_ingres-ota.zip)
