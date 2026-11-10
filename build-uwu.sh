@@ -501,6 +501,13 @@ do_build() {
         local ev
         for ev in $(compgen -e | grep -E '^RBE_'); do unset "$ev"; done
         unset ANDROID_BUILD_ENVIRONMENT_CONFIG ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR
+        # soong_ui.bash adalah skrip bash: bash membaca $BASH_ENV dulu sebelum
+        # menjalankannya, jadi kalau profil server memasang BASH_ENV, semua RBE_*
+        # (RBE_DIR=/srv/.rbe, USE_RBE=1, ...) terisi lagi di proses build
+        if [ -n "${BASH_ENV:-}" ] || [ -n "${ENV:-}" ]; then
+            info "BASH_ENV/ENV dari profil server dilepas: ${BASH_ENV:-}${ENV:+ ENV=$ENV}"
+            unset BASH_ENV ENV
+        fi
         export USE_RBE=false USE_REWRAPPER=false NOSTART_RBE=true
         # server juga menyuntik rewrapper lewat CC_WRAPPER (dan JAVAC_WRAPPER) untuk
         # setiap compile C/C++; tanpa reproxy hasilnya "-server_address cannot be empty".
@@ -554,7 +561,12 @@ do_build() {
     if [ "${rbe_state%% *}" = off ] && grep -q "/rewrapper " "$LOG"; then
         err "Perintah build masih memakai rewrapper (RBE) walau RBE mati. Screenshot info di bawah ini:"
         {
-        echo "--- env ---"; env | grep -iE '^(USE_RBE|USE_REWRAPPER|NOSTART_RBE|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|RBE_[A-Z_]*|ANDROID_BUILD_ENVIRONMENT_CONFIG[A-Z_]*)=' | cut -c1-160
+        echo "--- env ---"; env | grep -iE '^(USE_RBE|USE_REWRAPPER|NOSTART_RBE|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|RBE_[A-Z_]*|ANDROID_BUILD_ENVIRONMENT_CONFIG[A-Z_]*|BASH_ENV|ENV)=' | cut -c1-160
+        echo "--- env di proses bash baru (seperti soong_ui.bash) ---"
+        bash -c 'env' | grep -E '^(USE_RBE|RBE_DIR|CC_WRAPPER|BASH_ENV)=' | cut -c1-160
+        echo "--- file profil yang memasang RBE ---"
+        grep -lsE 'RBE_DIR|USE_RBE' /etc/environment /etc/profile /etc/profile.d/* /etc/bash.bashrc \
+            "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bash_login" 2>/dev/null
         echo "--- rewrapper di ninja Soong: $(grep -c rewrapper out/soong/build.uwu_ingres.ninja 2>/dev/null || echo '?') baris"
         echo "--- env yang dipakai Soong ---"
         grep -hoE '"(USE_RBE|USE_REWRAPPER|CC_WRAPPER|RBE_WRAPPER)"[^,}]*' out/soong/soong.environment.used.uwu_ingres* 2>/dev/null | head -n 8 | cut -c1-160
