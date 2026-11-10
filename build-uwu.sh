@@ -498,6 +498,19 @@ do_build() {
     if [ "${RBE:-0}" != 1 ]; then
         export USE_RBE=false USE_REWRAPPER=false NOSTART_RBE=true RBE_JAVAC=false RBE_R8=false \
             RBE_D8=false RBE_CLANG_TIDY=false RBE_METALAVA=false RBE_ABI_DUMPER=false RBE_ABI_LINKER=false
+        # server juga menyuntik rewrapper lewat CC_WRAPPER (dan JAVAC_WRAPPER) untuk
+        # setiap compile C/C++; tanpa reproxy hasilnya "-server_address cannot be empty".
+        # Buang bagian rewrapper, sisakan ccache kalau ada.
+        local w v keep
+        for w in CC_WRAPPER CXX_WRAPPER JAVAC_WRAPPER; do
+            v="${!w:-}"
+            case "$v" in
+                *rewrapper*)
+                    keep=$(printf '%s\n' "$v" | awk '{o=""; for(i=1;i<=NF;i++){if($i ~ /rewrapper/) break; o=o (o?" ":"") $i} print o}')
+                    if [ -n "$keep" ]; then export "$w=$keep"; else unset "$w"; fi
+                    info "$w tanpa rewrapper: ${keep:-(kosong)}" ;;
+            esac
+        done
         rbe_state=off
         info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
     else
@@ -506,15 +519,16 @@ do_build() {
     fi
     # aturan rewrapper tersimpan di file ninja Soong: kalau status RBE berganti,
     # paksa Soong membuat ulang file ninja supaya perintah compile ikut berubah
+    rbe_state="$rbe_state ${CC_WRAPPER:-}"
     if [ "$(cat .rbe-ingres 2>/dev/null)" != "$rbe_state" ]; then
         rm -f out/soong/build.*.ninja out/soong/build.*.ninja.d 2>/dev/null
-        info "Status RBE berganti ($rbe_state): file ninja Soong dibuat ulang"
+        info "Status RBE berganti (${rbe_state%% *}): file ninja Soong dibuat ulang"
     fi
     echo "$rbe_state" > .rbe-ingres
     # uwuAOSP tidak punya "m bacon": paket OTA dari m otapackage (uwu_ingres-ota.zip)
     m otapackage -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
-    if [ "$rbe_state" = off ] && grep -q "/rewrapper " "$LOG"; then
+    if [ "${rbe_state%% *}" = off ] && grep -q "/rewrapper " "$LOG"; then
         err "Perintah build masih memakai rewrapper (RBE) walau RBE=0. Kirim output: env | grep -i rbe"
     fi
     echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
