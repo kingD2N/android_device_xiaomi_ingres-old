@@ -23,11 +23,18 @@ Front camera | 20MP IMX596 in-display
 
 ![POCO F4 GT](https://i01.appmifile.com/webfile/globalimg/products/pc/poco-f4-gt/specs01.png "POCO F4 GT in all colours")
 
-## Build LineageOS 24.0 (Android 17)
+## Build Project Infinity X (Android 17, branch `infinity-17`)
+
+Project Infinity X v4.x ([ProjectInfinity-X/manifest](https://github.com/ProjectInfinity-X/manifest),
+branch `17`) berbasis LineageOS 24 (`vendor/infinity`, repo hardware `lineage-24.0`), jadi tree
+ingres LineageOS 24 dipakai langsung. Bedanya: produk `infinity_ingres` di `infinity_ingres.mk`
+(mewarisi `vendor/infinity/config/common_full_phone.mk`, `INFINITY_MAINTAINER`,
+`TARGET_HAS_UDFPS := false`), info Tentang ponsel di `properties/system.prop`, dan pilihan
+`GAPPS=0` untuk build vanilla.
 
 | Bagian | Repo | Branch |
 |---|---|---|
-| Device // ingres | [kingD2N/android_device_xiaomi_ingres-old](https://github.com/kingD2N/android_device_xiaomi_ingres-old) | lineage-24.0 |
+| Device // ingres | [kingD2N/android_device_xiaomi_ingres-old](https://github.com/kingD2N/android_device_xiaomi_ingres-old/tree/infinity-17) | infinity-17 |
 | Device // common | [kingD2N/Ingres_device_xiaomi_sm8450-common](https://github.com/kingD2N/Ingres_device_xiaomi_sm8450-common) | lineage-24.0 |
 | Vendor // ingres | kingD2N/proprietary_vendor_xiaomi_ingres | lineage-24.0 |
 | Vendor // common | [TheMuppets/proprietary_vendor_xiaomi_sm8450-common](https://github.com/TheMuppets/proprietary_vendor_xiaomi_sm8450-common) | lineage-24.0 |
@@ -38,41 +45,42 @@ Front camera | 20MP IMX596 in-display
 Cara paling mudah (skrip otomatis, jalan di byobu):
 
 ```bash
-curl -fsSL -o ~/build-ingres.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/build-ingres.sh
-bash ~/build-ingres.sh          # sync + build (varian user)
-bash ~/build-ingres.sh status   # cek progres
+curl -fsSL -o ~/build-infinity.sh https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/infinity-17/build-infinity.sh
+bash ~/build-infinity.sh          # sync + build (varian user)
+bash ~/build-infinity.sh status   # cek progres
 ```
 
 | Perintah | Fungsi |
 |---|---|
-| `bash ~/build-ingres.sh` | sync + build |
-| `bash ~/build-ingres.sh sync` / `build` | hanya sync / hanya build |
-| `bash ~/build-ingres.sh status` | lihat progres |
-| `bash ~/build-ingres.sh upload` | upload ulang hasil ke GoFile |
-| `bash ~/build-ingres.sh bersih [folder]` | hapus source ROM lain (default `~/lunaris`) |
-| `bash ~/build-ingres.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
-| `bash ~/build-ingres.sh clean` | hapus `out/` dan `~/hasil-los24` |
+| `bash ~/build-infinity.sh` | sync + build |
+| `bash ~/build-infinity.sh sync` / `build` | hanya sync / hanya build |
+| `bash ~/build-infinity.sh status` | lihat progres |
+| `bash ~/build-infinity.sh upload` | upload ulang hasil ke GoFile |
+| `bash ~/build-infinity.sh bersih [folder]` | hapus source ROM lain (default `~/lunaris`) |
+| `bash ~/build-infinity.sh reset-ingres` | hapus repo ingres/xiaomi lalu sync ulang |
+| `bash ~/build-infinity.sh clean` | hapus `out/` dan `~/hasil-infinity` |
 
-Varian default **user**; debug: `VARIANT=userdebug bash ~/build-ingres.sh`. Hasil di `~/hasil-los24`
+Varian default **user**; debug: `VARIANT=userdebug bash ~/build-infinity.sh`. Hasil di `~/hasil-infinity`
 dan otomatis diupload ke GoFile (matikan dengan `GOFILE=0`).
 
 Manual:
 
 ```bash
-repo init -u https://github.com/LineageOS/android.git -b lineage-24.0 --git-lfs --no-clone-bundle
+repo init --no-repo-verify --git-lfs -u https://github.com/ProjectInfinity-X/manifest -b 17 \
+  -g default,-mips,-darwin,-notdefault --no-clone-bundle
 mkdir -p .repo/local_manifests
-curl -L -o .repo/local_manifests/ingres.xml \
-  https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml
+curl -L -o .repo/local_manifests/infinity.xml \
+  https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/infinity-17/local_manifests/infinity.xml
 repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 source build/envsetup.sh
-breakfast ingres
+lunch infinity_ingres-cp2a-user
 m bacon
 ```
 
 ## Decrypt
 
 `/data` **tanpa enkripsi** secara default (`TARGET_DECRYPTED_DATA := true`): wajib Format Data saat pertama
-flash. Build terenkripsi: `DECRYPT=0 bash ~/build-ingres.sh`.
+flash. Build terenkripsi: `DECRYPT=0 bash ~/build-infinity.sh`.
 
 ## Firmware
 

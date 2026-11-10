@@ -5,16 +5,26 @@
 #
 
 # /data tanpa enkripsi (decrypt). Wajib format data saat pertama kali flash.
-# Build terenkripsi: DECRYPT=0 bash <script build>
+# Build terenkripsi: DECRYPT=0 bash build-infinity.sh
 TARGET_DECRYPTED_DATA ?= true
 
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
-# Inherit from common lineage configuration
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+# Project Infinity X
+INFINITY_MAINTAINER := kingD2N
+# sensor sidik jari di tombol power (bukan di layar)
+TARGET_HAS_UDFPS := false
+# GApps: build-infinity.sh mengisi WITH_GAPPS (GAPPS=0 -> vanilla)
+WITH_GAPPS ?= true
 
-PRODUCT_NAME := lineage_ingres
+# Inherit from common Infinity X configuration
+$(call inherit-product, vendor/infinity/config/common_full_phone.mk)
+
+# Info "Tentang ponsel" Infinity X ada di properties/system.prop
+# (ro.product.marketname, ro.infinity.soc, ro.infinity.camera)
+
+PRODUCT_NAME := infinity_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi

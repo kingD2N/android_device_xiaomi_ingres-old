@@ -1,2 +1,7 @@
 # Xiaomi
 ro.product.mod_device=ingres_global
+
+# Project Infinity X - Tentang ponsel
+ro.product.marketname=POCO F4 GT
+ro.infinity.soc=Snapdragon 8 Gen 1
+ro.infinity.camera=64MP + 8MP + 2MP
