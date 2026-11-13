@@ -118,6 +118,11 @@ check_tools() {
     [ -z "$miss" ] || { err "Alat belum terpasang di server:$miss (minta pemilik server memasangnya)"; exit 1; }
     git config --global user.name >/dev/null || git config --global user.name "kingD2N"
     git config --global user.email >/dev/null || git config --global user.email "114895723+kingD2N@users.noreply.github.com"
+    # Kalau ~/.gitconfig tidak terbaca (profil server), repo init gagal "Committer identity unknown".
+    # Variabel ini selalu dipakai git, apa pun isi config-nya.
+    export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-$(git config --global user.name 2>/dev/null || echo kingD2N)}"
+    export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config --global user.email 2>/dev/null || echo 114895723+kingD2N@users.noreply.github.com)}"
+    export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-$GIT_AUTHOR_NAME}" GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-$GIT_AUTHOR_EMAIL}"
     git lfs install >/dev/null 2>&1 || true
     CCACHE_EXEC="$(command -v ccache)"
     export USE_CCACHE=1 CCACHE_EXEC CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache}"
