@@ -12,7 +12,12 @@ TARGET_DECRYPTED_DATA ?= true
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
 # Inherit from common lineage configuration
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+# PixelOS
+TARGET_DISABLE_EPPE := true
+TARGET_SCREEN_WIDTH := 1080
+TARGET_SCREEN_HEIGHT := 2400
+TARGET_BOOT_ANIMATION_RESOLUTION := 1080
+$(call inherit-product, vendor/custom/config/common_full_phone.mk)
 
 PRODUCT_NAME := lineage_ingres
 PRODUCT_DEVICE := ingres
