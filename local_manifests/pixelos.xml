@@ -33,6 +33,9 @@
   <project path="vendor/xiaomi/gamekey" name="Ingres-Centre/android_vendor_xiaomi_gamekey" remote="gh" revision="master" />
   <!-- submodule GameKeys (repo tidak mengambil git submodule) -->
   <project path="vendor/xiaomi/gamekey/third_party/cpp/evdev" name="LineageOS/android_external_libevdev" remote="gh" revision="lineage-22.2" />
+  <!-- PixelOS punya aplikasi DolbyAtmos sendiri yang bentrok dengan hardware/dolby
+       (preinstalled-packages-platform-dolby.xml didefinisikan dua kali) -> lepas punya PixelOS -->
+  <remove-project name="PixelOS-AOSP/android_packages_apps_DolbyAtmos" />
   <project path="hardware/dolby" name="Ghosuto/hardware_dolby" remote="gh" revision="16" />
   <project path="vendor/JamesDSP" name="MillenniumOSS/android_vendor_JamesDSP" remote="gh" revision="sixteen" clone-depth="1" />
   <project path="vendor/xiaomi/miuicamera-ingres" name="Gurinbone/android_vendor_xiaomi_miuicamera-ingres" remote="gh" revision="lineage-23.2" clone-depth="1" />
