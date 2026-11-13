@@ -12,6 +12,13 @@ TARGET_DECRYPTED_DATA ?= true
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
 # Inherit from common lineage configuration
+# Evolution X
+EVO_BUILD_TYPE := Unofficial
+TARGET_SCREEN_WIDTH := 1080
+TARGET_SCREEN_HEIGHT := 2400
+TARGET_INCLUDE_BOOT_ANIMATIONS := true
+WITH_GMS ?= true
+
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
 PRODUCT_NAME := lineage_ingres
