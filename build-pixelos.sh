@@ -361,7 +361,7 @@ build_rom() {
     local jobs="$1" rc vstart name="PixelOS"
     vstart=$(date +%s)
     info "Build $name"
-    lunch "lineage_ingres-cp2a-$VARIANT" || { err "lunch lineage_ingres-cp2a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    lunch "custom_ingres-cp2a-$VARIANT" || { err "lunch custom_ingres-cp2a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
     m pixelos -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"

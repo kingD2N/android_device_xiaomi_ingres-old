@@ -19,7 +19,7 @@ TARGET_SCREEN_HEIGHT := 2400
 TARGET_BOOT_ANIMATION_RESOLUTION := 1080
 $(call inherit-product, vendor/custom/config/common_full_phone.mk)
 
-PRODUCT_NAME := lineage_ingres
+PRODUCT_NAME := custom_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi
