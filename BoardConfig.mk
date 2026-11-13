@@ -21,6 +21,8 @@ DEVICE_PATH := device/xiaomi/ingres
 # Audio
 AUDIO_FEATURE_ENABLED_CIRRUS_CALIBRATION_RESISTANCE := true
 AUDIO_FEATURE_ENABLED_ULTRASOUND_PROXIMITY := true
+$(call soong_config_set,qtiaudio,cirrus_calibration_resistance,true)
+$(call soong_config_set,qtiaudio,ultrasound_proximity,true)
 
 # Kernel modules
 BOARD_VENDOR_KERNEL_MODULES_LOAD += \
