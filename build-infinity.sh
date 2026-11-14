@@ -15,8 +15,6 @@
 # Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-infinity.sh):
 #   SRC=~/infinity     folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
-#   RBE=1              pakai remote build (RBE) server (default: mati, compile lokal;
-#                      hasil unduhan RBE di server ini berulang kali rusak)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
@@ -500,54 +498,11 @@ do_build() {
     info "Produk: $TARGET_PRODUCT, rilis: ${TARGET_RELEASE:-?}, varian: $TARGET_BUILD_VARIANT"
     # RBE diatur SETELAH envsetup/lunch (vendorsetup.sh atau profil server bisa menyalakannya lagi)
     local rbe_state
-    if [ "${RBE:-0}" != 1 ]; then
-        # buang semua setelan RBE dari profil server (RBE_DIR, RBE_CXX_EXEC_STRATEGY, ...)
-        # dan file konfigurasi env yang bisa mengisinya lagi
-        local ev
-        for ev in $(compgen -e | grep -E '^RBE_'); do unset "$ev"; done
-        unset ANDROID_BUILD_ENVIRONMENT_CONFIG ANDROID_BUILD_ENVIRONMENT_CONFIG_DIR
-        # soong_ui.bash adalah skrip bash: bash membaca $BASH_ENV dulu sebelum
-        # menjalankannya, jadi kalau profil server memasang BASH_ENV, semua RBE_*
-        # (RBE_DIR=/srv/.rbe, USE_RBE=1, ...) terisi lagi di proses build
-        if [ -n "${BASH_ENV:-}" ] || [ -n "${ENV:-}" ]; then
-            info "BASH_ENV/ENV dari profil server dilepas: ${BASH_ENV:-}${ENV:+ ENV=$ENV}"
-            unset BASH_ENV ENV
-        fi
-        export USE_RBE=false USE_REWRAPPER=false NOSTART_RBE=true
-        # server juga menyuntik rewrapper lewat CC_WRAPPER (dan JAVAC_WRAPPER) untuk
-        # setiap compile C/C++; tanpa reproxy hasilnya "-server_address cannot be empty".
-        # Buang bagian rewrapper, sisakan ccache kalau ada.
-        local w v keep
-        for w in CC_WRAPPER CXX_WRAPPER JAVAC_WRAPPER; do
-            v="${!w:-}"
-            case "$v" in
-                *rewrapper*)
-                    keep=$(printf '%s\n' "$v" | awk '{o=""; for(i=1;i<=NF;i++){if($i ~ /rewrapper/) break; o=o (o?" ":"") $i} print o}')
-                    if [ -n "$keep" ]; then export "$w=$keep"; else unset "$w"; fi
-                    info "$w tanpa rewrapper: ${keep:-(kosong)}" ;;
-            esac
-        done
-        # Make (build/make/core/rbe.mk) memasang rewrapper ke CC_WRAPPER kalau
-        # USE_REWRAPPER/RBE_DIR diisi di makefile, mis. buildspec.mk dari server:
-        # nilai di makefile mengalahkan env, jadi singkirkan sementara
-        if [ -f buildspec.mk ] && grep -qiE 'RBE|REWRAPPER' buildspec.mk; then
-            mv -f buildspec.mk buildspec.mk.rbe-off
-            info "buildspec.mk berisi setelan RBE: disingkirkan ke buildspec.mk.rbe-off"
-        fi
-        local rbe_mk
-        rbe_mk=$(grep -rlsE '^[[:space:]]*(export[[:space:]]+)?(USE_RBE|USE_REWRAPPER|RBE_DIR)[[:space:]]*[:?+]?=' \
-                 --include='*.mk' device vendor product 2>/dev/null | grep -v '^vendor/infinity/' | head -n 5)
-        [ -n "$rbe_mk" ] && info "Makefile yang mengisi USE_RBE/USE_REWRAPPER/RBE_DIR: $(echo $rbe_mk)"
-        rbe_state=off
-        info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
-        info "Env build: $(env | grep -E '^(USE_RBE|USE_REWRAPPER|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|USE_CCACHE|CCACHE_EXEC)=' | tr '\n' ' ')"
-    else
-        [ -f buildspec.mk.rbe-off ] && [ ! -f buildspec.mk ] && mv -f buildspec.mk.rbe-off buildspec.mk
-        rbe_state=on
-        info "RBE server dipakai (RBE=1)"
-    fi
-    # aturan rewrapper tersimpan di file ninja Soong: kalau status RBE berganti,
-    # paksa Soong membuat ulang file ninja supaya perintah compile ikut berubah
+    # Environment build bawaan server (RBE_*, CUSTOM_NINJA_BIN, BASH_ENV, CC_WRAPPER, ...)
+    # dipakai apa adanya: penjadwal build server menghentikan build yang menghapus
+    # atau menimpa variabel itu ("Build Terminated (Setup Required)").
+    rbe_state=server
+    info "Environment build server dipakai apa adanya (aturan server)"
     rbe_state="$rbe_state ${CC_WRAPPER:-}"
     # juga kalau build lalu masih gagal karena rewrapper tanpa reproxy
     if [ "$(cat .rbe-ingres 2>/dev/null)" != "$rbe_state" ] || \
