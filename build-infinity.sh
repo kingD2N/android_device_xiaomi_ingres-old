@@ -486,13 +486,18 @@ do_build() {
     info "ROM: $ROM_NAME"
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
-    # Infinity X: produk infinity_ingres (lunch mengisi INFINITY_BUILD=ingres untuk nama zip);
+    # Infinity X 4.2: produk lineage_ingres (check_product vendor/infinity hanya mengenali lineage_*);
     # rilis dari vendor/infinity/vars/aosp_target_release
     if [ "${GAPPS:-1}" = 0 ]; then export WITH_GAPPS=false; info "Build vanilla (tanpa GApps)"; else export WITH_GAPPS=true; info "Build dengan GApps"; fi
     # shellcheck disable=SC1091
     source vendor/infinity/vars/aosp_target_release 2>/dev/null
     local rel="${aosp_target_release:-cp2a}"
-    lunch "infinity_ingres-$rel-$VARIANT" || { err "lunch infinity_ingres-$rel-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    lunch "lineage_ingres-$rel-$VARIANT" || { err "lunch lineage_ingres-$rel-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # lunch yang gagal diam-diam membuat build jatuh ke aosp_arm64 (tanpa config Infinity) -> hentikan
+    if [ "${TARGET_PRODUCT:-}" != lineage_ingres ]; then
+        err "lunch tidak memilih lineage_ingres (TARGET_PRODUCT=${TARGET_PRODUCT:-kosong}). Jalankan: bash $SCRIPT sync"
+        exit 1
+    fi
     # RBE diatur SETELAH envsetup/lunch (vendorsetup.sh atau profil server bisa menyalakannya lagi)
     local rbe_state
     if [ "${RBE:-0}" != 1 ]; then
@@ -566,16 +571,16 @@ do_build() {
         echo "--- file profil yang memasang RBE ---"
         grep -lsE 'RBE_DIR|USE_RBE' /etc/environment /etc/profile /etc/profile.d/* /etc/bash.bashrc \
             "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile" "$HOME/.bash_login" 2>/dev/null
-        echo "--- rewrapper di ninja Soong: $(grep -c rewrapper out/soong/build.infinity_ingres.ninja 2>/dev/null || echo '?') baris"
+        echo "--- rewrapper di ninja Soong: $(grep -c rewrapper out/soong/build.lineage_ingres.ninja 2>/dev/null || echo '?') baris"
         echo "--- env yang dipakai Soong ---"
-        grep -hoE '"(USE_RBE|USE_REWRAPPER|CC_WRAPPER|RBE_WRAPPER)"[^,}]*' out/soong/soong.environment.used.infinity_ingres* 2>/dev/null | head -n 8 | cut -c1-160
+        grep -hoE '"(USE_RBE|USE_REWRAPPER|CC_WRAPPER|RBE_WRAPPER)"[^,}]*' out/soong/soong.environment.used.lineage_ingres* 2>/dev/null | head -n 8 | cut -c1-160
         ls -la buildspec.mk* 2>/dev/null
         echo "--- makefile yang mengisi RBE ---"
         grep -rnsE '^[[:space:]]*(export[[:space:]]+)?(USE_RBE|USE_REWRAPPER|RBE_DIR|CC_WRAPPER)[[:space:]]*[:?+]?=' \
             --include='*.mk' buildspec.mk* device vendor product build/make/core 2>/dev/null \
             | grep -v -e 'core/rbe.mk' -e 'core/ccache.mk' | head -n 8 | cut -c1-160
         echo "--- CC_WRAPPER di ninja Soong ---"
-        grep -m1 -o 'CcWrapper = .\{0,120\}' out/soong/build.infinity_ingres.ninja 2>/dev/null
+        grep -m1 -o 'CcWrapper = .\{0,120\}' out/soong/build.lineage_ingres.ninja 2>/dev/null
         } 2>&1 | tee "$HOME/rbe-diag.txt"
         echo "Info ini juga tersimpan di ~/rbe-diag.txt (kirim: cat ~/rbe-diag.txt)"
     fi
@@ -605,8 +610,8 @@ do_build() {
     fi
 
     local p="out/target/product/ingres" zip name
-    zip=$(ls -t "$p"/Project_Infinity-X-*-ingres-*.zip 2>/dev/null | head -n 1)
-    [ -n "$zip" ] || { err "Build selesai tapi zip Project_Infinity-X-*-ingres-*.zip tidak ditemukan"; exit 1; }
+    zip=$(ls -t "$p"/Project_Infinity-X-*.zip 2>/dev/null | grep -v target_files | head -n 1)
+    [ -n "$zip" ] || { err "Build selesai tapi zip Project_Infinity-X-*.zip tidak ditemukan"; exit 1; }
     name=$(basename "$zip")
     mkdir -p "$HASIL_DIR"
     cp "$zip" "$HASIL_DIR/$name"

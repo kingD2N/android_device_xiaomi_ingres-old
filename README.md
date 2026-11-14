@@ -27,7 +27,7 @@ Front camera | 20MP IMX596 in-display
 
 Project Infinity X v4.x ([ProjectInfinity-X/manifest](https://github.com/ProjectInfinity-X/manifest),
 branch `17`) berbasis LineageOS 24 (`vendor/infinity`, repo hardware `lineage-24.0`), jadi tree
-ingres LineageOS 24 dipakai langsung. Bedanya: produk `infinity_ingres` di `infinity_ingres.mk`
+ingres LineageOS 24 dipakai langsung. Bedanya: produk `lineage_ingres` di `lineage_ingres.mk` (Infinity X 4.2 memakai awalan `lineage_`)
 (mewarisi `vendor/infinity/config/common_full_phone.mk`, `INFINITY_MAINTAINER`,
 `TARGET_HAS_UDFPS := false`), info Tentang ponsel di `properties/system.prop`, dan pilihan
 `GAPPS=0` untuk build vanilla.
@@ -73,7 +73,7 @@ curl -L -o .repo/local_manifests/infinity.xml \
   https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/infinity-17/local_manifests/infinity.xml
 repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 source build/envsetup.sh
-lunch infinity_ingres-cp2a-user
+lunch lineage_ingres-cp2a-user
 m bacon
 ```
 
