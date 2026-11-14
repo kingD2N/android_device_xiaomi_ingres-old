@@ -15,6 +15,7 @@
 #   SRC=~/pixelos      folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
+#   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -60,8 +61,9 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/los24" "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
-             "$HOME/uwu" "$HOME/infinity" "$HOME/ascp" "$HOME/aospa" "$HOME/axion" "$HOME/penguin" "$HOME/evox" "$HOME/hasil-evox" \
+    # folder hasil-* (zip ROM jadi) tidak dihapus otomatis; sebut sendiri kalau mau dihapus
+    for d in "$HOME/los24" "$HOME/lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
+             "$HOME/uwu" "$HOME/infinity" "$HOME/ascp" "$HOME/aospa" "$HOME/axion" "$HOME/penguin" "$HOME/evox" \
              "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
@@ -336,7 +338,13 @@ do_build() {
     move_leftovers
     patch_source
     fix_kernel_headers
-    info "Varian build: $VARIANT"
+    local variant_list v
+    case "$VARIANT" in
+        both|2|semua) variant_list="user userdebug" ;;
+        user|userdebug|eng) variant_list="$VARIANT" ;;
+        *) err "VARIANT tidak dikenal: $VARIANT (pakai: user | userdebug | eng | both)"; exit 1 ;;
+    esac
+    info "Varian build: $variant_list"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
     local start rc
@@ -345,7 +353,9 @@ do_build() {
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
     mkdir -p "$HASIL_DIR"
-    build_rom "$jobs"
+    for v in $variant_list; do
+        build_rom "$jobs" "$v"
+    done
     echo "Durasi total: $(( ($(date +%s) - start) / 60 )) menit"
     ok "BUILD BERHASIL"
     ls -lh "$HASIL_DIR"
@@ -356,12 +366,18 @@ do_build() {
     fi
 }
 
-# Build ROM: $1 = jumlah job (PixelOS selalu membawa GApps)
+# Build ROM: $1 = jumlah job, $2 = user / userdebug / eng (PixelOS selalu membawa GApps)
 build_rom() {
-    local jobs="$1" rc vstart name="PixelOS"
+    local jobs="$1" variant="$2" rc vstart name="PixelOS $2"
     vstart=$(date +%s)
     info "Build $name"
-    lunch "custom_ingres-cp2a-$VARIANT" || { err "lunch custom_ingres-cp2a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    lunch "custom_ingres-cp2a-$variant" || { err "lunch custom_ingres-cp2a-$variant gagal (cek local manifest / sync)"; exit 1; }
+    # user <-> userdebug: file varian lama masih tertinggal di out/ -> installclean saat berganti
+    if [ -f .variant-ingres ] && [ "$(cat .variant-ingres)" != "$variant" ]; then
+        info "Varian berganti ($(cat .variant-ingres) -> $variant): installclean dulu"
+        m installclean >/dev/null 2>&1 || true
+    fi
+    echo "$variant" > .variant-ingres
     m pixelos -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
@@ -386,9 +402,17 @@ build_rom() {
     local p="out/target/product/ingres" zip
     zip=$(ls -t "$p"/PixelOS_*ingres*.zip 2>/dev/null | grep -v target_files | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-    (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
-    ok "Selesai: $(basename "$zip")"
+    # nama zip/img user dan userdebug bisa sama -> selain user diberi akhiran varian
+    local sfx="" out img
+    [ "$variant" = user ] || sfx="-$variant"
+    out="$(basename "$zip")"
+    case "$out" in *"$variant"*|*"${variant^^}"*) ;; *) out="${out%.zip}$sfx.zip" ;; esac
+    cp "$zip" "$HASIL_DIR/$out" || { err "Gagal menyalin zip ke $HASIL_DIR"; exit 1; }
+    for img in boot dtbo vendor_boot recovery; do
+        [ -f "$p/$img.img" ] && cp "$p/$img.img" "$HASIL_DIR/$img$sfx.img"
+    done
+    (cd "$HASIL_DIR" && sha256sum "$out" > "$out.sha256")
+    ok "Selesai: $out"
 }
 
 # ------------------------------------------------------------- GoFile
