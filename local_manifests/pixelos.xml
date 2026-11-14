@@ -16,12 +16,13 @@
   <project name="android_hardware_xiaomi" path="hardware/xiaomi" remote="los" revision="lineage-24.0" />
 
   <!-- Vendor // ingres -->
-  <project name="proprietary_vendor_xiaomi_ingres" path="vendor/xiaomi/ingres" remote="d2n" revision="lineage-24.0" clone-depth="1" />
+  <project name="proprietary_vendor_xiaomi_ingres" path="vendor/xiaomi/ingres" remote="d2n" revision="lineage-24.0-a17" clone-depth="1" />
   <!-- Vendor // common -->
-  <project name="proprietary_vendor_xiaomi_sm8450-common" path="vendor/xiaomi/sm8450-common" remote="muppets" revision="lineage-24.0" clone-depth="1" />
+  <!-- A17 64-bit: vendor common Gurinbone (ssgqmigd64, entri Dolby, tabel FPS termal) -->
+  <project path="vendor/xiaomi/sm8450-common" name="Gurinbone/proprietary_vendor_xiaomi_sm8450-common" remote="gh" revision="lineage-24.0" clone-depth="1" />
 
   <!-- Kernel -->
-  <project name="android_kernel_xiaomi_sm8450" path="kernel/xiaomi/sm8450" remote="d2n" revision="lineage-24.0" clone-depth="1" />
+  <project name="android_kernel_xiaomi_sm8450" path="kernel/xiaomi/sm8450" remote="d2n" revision="lineage-24.0-a17" clone-depth="1" />
   <!-- Kernel module -->
   <project name="android_kernel_xiaomi_sm8450-modules" path="kernel/xiaomi/sm8450-modules" remote="los" revision="lineage-24.0" clone-depth="1" />
   <!-- Kernel device tree -->
@@ -36,8 +37,10 @@
   <!-- PixelOS punya aplikasi DolbyAtmos sendiri yang bentrok dengan hardware/dolby
        (preinstalled-packages-platform-dolby.xml didefinisikan dua kali) -> lepas punya PixelOS -->
   <remove-project name="PixelOS-AOSP/android_packages_apps_DolbyAtmos" />
-  <project path="hardware/dolby" name="Ghosuto/hardware_dolby" remote="gh" revision="16" />
+  <!-- A17: Dolby sony-A17 (aturan sepolicy platform_app_36) + aplikasi LunarisDolby dari DolbyUI -->
+  <project path="hardware/dolby" name="Gurinbone/hardware_dolby" remote="gh" revision="sony-A17" />
+  <project path="packages/apps/DolbyUI" name="Gurinbone/packages_apps_DolbyUI" remote="gh" revision="main" />
   <project path="vendor/JamesDSP" name="MillenniumOSS/android_vendor_JamesDSP" remote="gh" revision="sixteen" clone-depth="1" />
   <project path="vendor/xiaomi/miuicamera-ingres" name="Gurinbone/android_vendor_xiaomi_miuicamera-ingres" remote="gh" revision="lineage-23.2" clone-depth="1" />
-  <project path="device/xiaomi/miuicamera-ingres" name="Ingres-stuff/android_device_xiaomi_miuicamera-ingres" remote="gh" revision="lineage-21" />
+  <project path="device/xiaomi/miuicamera-ingres" name="Gurinbone/android_device_xiaomi_miuicamera-ingres" remote="gh" revision="A17" />
 </manifest>
