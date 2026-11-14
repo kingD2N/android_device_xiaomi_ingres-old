@@ -13,8 +13,6 @@ $(call inherit-product, device/xiaomi/ingres/device.mk)
 
 # Project Infinity X
 INFINITY_MAINTAINER := kingD2N
-# Infinity X 4.2: produk berawalan lineage_; nama device untuk nama zip & ro.infinity.device
-INFINITY_BUILD ?= ingres
 # sensor sidik jari di tombol power (bukan di layar)
 TARGET_HAS_UDFPS := false
 # GApps: build-infinity.sh mengisi WITH_GAPPS (GAPPS=0 -> vanilla)
@@ -26,7 +24,7 @@ $(call inherit-product, vendor/infinity/config/common_full_phone.mk)
 # Info "Tentang ponsel" Infinity X ada di properties/system.prop
 # (ro.product.marketname, ro.infinity.soc, ro.infinity.camera)
 
-PRODUCT_NAME := lineage_ingres
+PRODUCT_NAME := infinity_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi
