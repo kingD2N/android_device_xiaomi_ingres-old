@@ -16,6 +16,7 @@
 #   SRC=~/lunaris      folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
+#   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   GAPPS=1            build dengan GApps (default)
 #   GAPPS=0            build vanilla tanpa GApps
 #   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
@@ -325,7 +326,13 @@ do_build() {
     move_leftovers
     patch_source
     fix_kernel_headers
-    info "Varian build: $VARIANT"
+    local variant_list v
+    case "$VARIANT" in
+        both|2|semua) variant_list="user userdebug" ;;
+        user|userdebug|eng) variant_list="$VARIANT" ;;
+        *) err "VARIANT tidak dikenal: $VARIANT (pakai: user | userdebug | eng | both)"; exit 1 ;;
+    esac
+    info "Varian build: $variant_list"
     set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
     local start rc
     start=$(date +%s)
@@ -341,8 +348,10 @@ do_build() {
         *)            gms_list="true" ;;
     esac
     mkdir -p "$HASIL_DIR"
-    for g in $gms_list; do
-        build_variant "$g" "$jobs"
+    for v in $variant_list; do
+        for g in $gms_list; do
+            build_variant "$g" "$jobs" "$v"
+        done
     done
     echo "Durasi total: $(( ($(date +%s) - start) / 60 )) menit"
     ok "BUILD BERHASIL"
@@ -354,21 +363,23 @@ do_build() {
     fi
 }
 
-# Build satu varian: $1 = true (GApps) / false (vanilla), $2 = jumlah job
+# Build satu varian: $1 = true (GApps) / false (vanilla), $2 = jumlah job,
+# $3 = user / userdebug / eng
 build_variant() {
-    local gms="$1" jobs="$2" rc vstart name
+    local gms="$1" jobs="$2" variant="$3" rc vstart name
     vstart=$(date +%s)
     export WITH_GMS="$gms"
     if [ "$gms" = true ]; then name="GApps (GMS)"; else name="vanilla (tanpa GApps)"; fi
+    name="$name $variant"
     info "Build $name"
-    lunch "lineage_ingres-bp4a-$VARIANT" || { err "lunch lineage_ingres-bp4a-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
-    # GApps <-> vanilla: file GApps lama masih tertinggal di out/ dan ikut masuk zip
-    # kalau tidak dibersihkan -> installclean saat varian berganti
-    if [ -f .gms-ingres ] && [ "$(cat .gms-ingres)" != "$gms" ]; then
-        info "Varian GApps berganti: installclean dulu"
+    lunch "lineage_ingres-bp4a-$variant" || { err "lunch lineage_ingres-bp4a-$variant gagal (cek local manifest / sync)"; exit 1; }
+    # GApps <-> vanilla atau user <-> userdebug: file varian lama masih tertinggal
+    # di out/ dan ikut masuk zip kalau tidak dibersihkan -> installclean saat berganti
+    if [ -f .gms-ingres ] && [ "$(cat .gms-ingres)" != "$gms $variant" ]; then
+        info "Varian berganti ($(cat .gms-ingres) -> $gms $variant): installclean dulu"
         m installclean >/dev/null 2>&1 || true
     fi
-    echo "$gms" > .gms-ingres
+    echo "$gms $variant" > .gms-ingres
     m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
@@ -395,9 +406,17 @@ build_variant() {
     zip=$(ls -t "$p"/Lunaris-AOSP-*-"$tag"-*.zip 2>/dev/null | head -n 1)
     [ -n "$zip" ] || zip=$(ls -t "$p"/*.zip 2>/dev/null | grep -v -e target_files -e '-ota' | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-    (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
-    ok "Selesai: $(basename "$zip")"
+    # nama zip/img user dan userdebug bisa sama -> selain user diberi akhiran varian
+    local sfx="" out img
+    [ "$variant" = user ] || sfx="-$variant"
+    out="$(basename "$zip")"
+    case "$out" in *"$variant"*|*"${variant^^}"*) ;; *) out="${out%.zip}$sfx.zip" ;; esac
+    cp "$zip" "$HASIL_DIR/$out" || { err "Gagal menyalin zip ke $HASIL_DIR"; exit 1; }
+    for img in boot dtbo vendor_boot recovery; do
+        [ -f "$p/$img.img" ] && cp "$p/$img.img" "$HASIL_DIR/$img$sfx.img"
+    done
+    (cd "$HASIL_DIR" && sha256sum "$out" > "$out.sha256")
+    ok "Selesai: $out"
 }
 
 # ------------------------------------------------------------- GoFile
