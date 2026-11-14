@@ -73,6 +73,8 @@ if [ "$CMD" = "bersih" ]; then
              "$HOME/ascp" "$HOME/hasil-ascp" "$HOME/build-ascp.log" "$HOME/ascp-sisa-lama" \
              "$HOME/uwu" "$HOME/hasil-uwu" "$HOME/build-uwu.log" "$HOME/uwu-sisa-lama" "$HOME/rbe-diag.txt" \
              "$HOME/aospa" "$HOME/build-aospa.log" \
+             "$HOME/pixelos" "$HOME/hasil-pixelos" "$HOME/build-pixelos.log" "$HOME/pixelos-sisa-lama" \
+             "$HOME/evox" "$HOME/hasil-evox" "$HOME/build-evox.log" "$HOME/evox-sisa-lama" \
              "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
@@ -89,7 +91,7 @@ if [ "$CMD" = "bersih" ]; then
     echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris, ~/hasil-aospa) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris axion ascp uwu infinity; do
+    for s in los24 aospa lunaris axion ascp uwu infinity evox pixelos; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -129,6 +131,11 @@ check_tools() {
     [ -z "$miss" ] || { err "Alat belum terpasang di server:$miss (minta pemilik server memasangnya)"; exit 1; }
     git config --global user.name >/dev/null || git config --global user.name "kingD2N"
     git config --global user.email >/dev/null || git config --global user.email "114895723+kingD2N@users.noreply.github.com"
+    # Kalau ~/.gitconfig tidak terbaca (profil server), repo init gagal "Committer identity unknown".
+    # Variabel ini selalu dipakai git, apa pun isi config-nya.
+    export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-$(git config --global user.name 2>/dev/null || echo kingD2N)}"
+    export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config --global user.email 2>/dev/null || echo 114895723+kingD2N@users.noreply.github.com)}"
+    export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-$GIT_AUTHOR_NAME}" GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-$GIT_AUTHOR_EMAIL}"
     git lfs install >/dev/null 2>&1 || true
     CCACHE_EXEC="$(command -v ccache)"
     export USE_CCACHE=1 CCACHE_EXEC CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache}"
@@ -319,7 +326,7 @@ do_sync() {
     for f in .repo/local_manifests/*.xml; do
         [ -e "$f" ] && [ "$(basename "$f")" != infinity.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/infinity.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/infinity.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
