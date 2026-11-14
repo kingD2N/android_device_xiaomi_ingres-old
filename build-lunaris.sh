@@ -15,7 +15,7 @@
 # Pengaturan (opsional, isi sebelum perintah, contoh: GAPPS=0 bash build-lunaris.sh):
 #   SRC=~/lunaris      folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
-#   VARIANT=user       user (rilis, default) / userdebug / eng
+#   VARIANT=userdebug  userdebug (default, Bluetooth normal) / user / eng
 #   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   GAPPS=1            build dengan GApps (default)
 #   GAPPS=0            build vanilla tanpa GApps
@@ -30,7 +30,7 @@ ROM=lunaris
 ROM_NAME="Lunaris-AOSP 16.2"
 ROM_MANIFEST="https://github.com/Lunaris-AOSP/android"; ROM_BRANCH="16.2"
 SRC="${SRC:-$HOME/lunaris}"
-VARIANT="${VARIANT:-user}"
+VARIANT="${VARIANT:-userdebug}"
 SESSION="lunaris"
 LOG="$HOME/build-lunaris.log"
 MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lunaris-16.2/local_manifests/lunaris.xml"
