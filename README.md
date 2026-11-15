@@ -72,6 +72,19 @@ Image firmware OS2.0.8.0 tersedia di release
 [ingres-firmware-OS2.0.8.0.ULJCNXM](https://github.com/kingD2N/firmware_Update/releases/tag/ingres-firmware-OS2.0.8.0.ULJCNXM)
 untuk di-flash manual lewat fastboot (`fastboot flash <partisi>_a <partisi>.img` dan `_b`).
 
+## AlphaDroid 16 v4.7 (branch `alpha-16.2`)
+
+Produk `alpha_ingres` (vendor/alpha), local manifest `local_manifests/alpha.xml`
+(set A16 sama dengan Lunaris, kamera A16 tidak diubah) dan script `build-alpha.sh`.
+GApps AlphaDroid ada di GitLab; kalau server tidak bisa mengaksesnya, script
+mencoba mirror Codeberg, lalu build vanilla.
+
+```
+curl -fsSL -o ~/build-alpha.sh "https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/alpha-16.2/build-alpha.sh"
+bash ~/build-alpha.sh                    # GApps (kalau tersedia), userdebug
+GAPPS=0 bash ~/build-alpha.sh            # vanilla
+```
+
 ## Lunaris-AOSP 16.2 (branch `lunaris-16.2`)
 
 Branch ini = tree LineageOS 24 ingres + pengaturan Lunaris (`lineage_ingres.mk`:
