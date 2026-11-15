@@ -227,8 +227,26 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# Display sm8450 yang dipin AlphaDroid masih membawa stub kosong libvmmem, padahal
+# library aslinya sudah ada di vendor/qcom/opensource/libvmmem (LineageOS terbaru sudah
+# membuang stub itu) -> "libvmmem already defined". Buang stub-nya, header tetap.
+fix_libvmmem() {
+    local f=hardware/qcom-caf/sm8450/display/libvmmem/Android.bp
+    [ -f "$f" ] && [ -f vendor/qcom/opensource/libvmmem/Android.bp ] || return 0
+    grep -q 'cc_library_shared' "$f" || return 0
+    python3 - "$f" <<'PY' && info "Tambalan: stub libvmmem di display sm8450 dibuang (pakai vendor/qcom/opensource/libvmmem)"
+import re, sys
+p = sys.argv[1]
+s = open(p).read()
+s2 = re.sub(r'cc_library_shared\s*\{[^{}]*name:\s*"libvmmem"[^{}]*\}\s*', '', s)
+if s2 == s:
+    sys.exit(1)
+open(p, "w").write(s2)
+PY
+}
+
 unpatch_source() {
-    git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
+    git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp libvmmem/Android.bp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     local r
     for r in device/xiaomi/ingres device/xiaomi/sm8450-common hardware/xiaomi; do
@@ -255,6 +273,7 @@ fix_vendor_lineage() {
     done
 }
 patch_source() {
+    fix_libvmmem
     fix_dolby_vision
     fix_gamekey
     fix_vendor_lineage
