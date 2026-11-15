@@ -227,17 +227,17 @@ fix_dolby_vision() {
 }
 
 # Launcher3: geser ke atas dari aplikasi melewati batas (ada getar), lepas -> aplikasi
-# dibuka di jendela mengambang. Pengaturan ada di Setelan Layar utama (metode:
-# freeform bawaan / LMOFreeform / gelembung aplikasi). Patch disimpan di device tree.
+# dibuka sebagai gelembung (bubble). Pengaturan ada di Setelan Layar utama.
+# Patch disimpan di device tree.
 L3_DIR=packages/apps/Launcher3
 L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-recents-freeform-gesture.patch"
 fix_launcher3_freeform() {
     [ -f "$L3_PATCH" ] && [ -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ] || return 0
     git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null && return 0   # sudah terpasang
     if git -C "$L3_DIR" apply "$L3_PATCH"; then
-        info "Tambalan: Launcher3 geser ke atas -> jendela mengambang"
+        info "Tambalan: Launcher3 geser ke atas -> gelembung aplikasi"
     else
-        err "Tambalan Launcher3 jendela mengambang tidak cocok lagi (Launcher3 berubah), dilewati"
+        err "Tambalan Launcher3 gelembung tidak cocok lagi (Launcher3 berubah), dilewati"
     fi
 }
 

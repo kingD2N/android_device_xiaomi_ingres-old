@@ -1,25 +1,24 @@
-From 76090a0c14230b853bc067cdde33956b13f1ddd3 Mon Sep 17 00:00:00 2001
+From 1359a6325456e20907088c5ca61e324a313e3b04 Mon Sep 17 00:00:00 2001
 From: kingD2N <114895723+kingD2N@users.noreply.github.com>
-Date: Mon, 16 Nov 2026 04:03:29 +0800
-Subject: [PATCH] Launcher3: swipe up past a threshold to open the app in a
- floating window
+Date: Mon, 16 Nov 2026 04:10:27 +0800
+Subject: [PATCH] Launcher3: swipe up past a threshold to open the app as a
+ bubble
 
 Swipe up from an app and keep dragging. Past the chosen distance the
 phone vibrates once; releasing there sends the launcher home and opens
-the app as a floating window instead.
+the app as an app bubble instead.
 
-Settings (Home settings):
-- Swipe up for floating window (off by default)
-- Swipe distance: 45-80% of the screen height (default 60%)
-- Method: native freeform, LMOFreeform (default) or app bubble
+Home settings get a switch (off by default) and the swipe distance
+(45-80% of the screen height, default 60%). The gesture stays off when
+the shell cannot create app bubbles.
 ---
- .../android/quickstep/AbsSwipeUpHandler.java  |  22 ++-
- .../util/RecentsFreeformGesture.java          | 184 ++++++++++++++++++
- res/values-in/freeform_gesture_strings.xml    |  24 +++
- res/values/freeform_gesture_strings.xml       |  58 ++++++
- res/xml/launcher_preferences.xml              |  27 +++
- src/com/android/launcher3/LauncherPrefs.kt    |   6 +
- 6 files changed, 320 insertions(+), 1 deletion(-)
+ .../android/quickstep/AbsSwipeUpHandler.java  |  22 +++-
+ .../util/RecentsFreeformGesture.java          | 115 ++++++++++++++++++
+ res/values-in/freeform_gesture_strings.xml    |  21 ++++
+ res/values/freeform_gesture_strings.xml       |  42 +++++++
+ res/xml/launcher_preferences.xml              |  17 +++
+ src/com/android/launcher3/LauncherPrefs.kt    |   4 +
+ 6 files changed, 220 insertions(+), 1 deletion(-)
  create mode 100644 quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java
  create mode 100644 res/values-in/freeform_gesture_strings.xml
  create mode 100644 res/values/freeform_gesture_strings.xml
@@ -97,10 +96,10 @@ index afa87a5..82b95ef 100644
          if (mIsTransientTaskbar && mContainerInterface.getTaskbarInteractor() != null) {
 diff --git a/quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java b/quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java
 new file mode 100644
-index 0000000..9f0fac9
+index 0000000..6417809
 --- /dev/null
 +++ b/quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java
-@@ -0,0 +1,184 @@
+@@ -0,0 +1,115 @@
 +/*
 + * Copyright (C) 2026 kingD2N
 + *
@@ -118,20 +117,12 @@ index 0000000..9f0fac9
 + */
 +package com.android.quickstep.util;
 +
-+import static android.app.WindowConfiguration.WINDOWING_MODE_FREEFORM;
-+
 +import static com.android.launcher3.util.Executors.MAIN_EXECUTOR;
-+import static com.android.launcher3.util.Executors.UI_HELPER_EXECUTOR;
 +import static com.android.launcher3.util.VibratorWrapper.OVERVIEW_HAPTIC;
 +
-+import android.app.ActivityOptions;
-+import android.content.ComponentName;
 +import android.content.Context;
 +import android.content.Intent;
-+import android.graphics.Rect;
 +import android.os.UserHandle;
-+import android.util.DisplayMetrics;
-+import android.util.Log;
 +
 +import androidx.annotation.Nullable;
 +
@@ -140,42 +131,29 @@ index 0000000..9f0fac9
 +import com.android.quickstep.SystemUiProxy;
 +import com.android.quickstep.views.TaskView;
 +import com.android.systemui.shared.recents.model.Task;
-+import com.android.systemui.shared.system.ActivityManagerWrapper;
++import com.android.wm.shell.shared.bubbles.BubbleFlagHelper;
 +import com.android.wm.shell.shared.bubbles.logging.EntryPoint;
 +
 +/**
 + * Swipe up from an app and keep dragging past a threshold: on release the app
-+ * opens as a floating window instead of going home or to recents.
++ * opens as an app bubble instead of going home or to recents.
 + */
 +public final class RecentsFreeformGesture {
 +
-+    private static final String TAG = "RecentsFreeformGesture";
-+
-+    /** Native freeform window (ActivityOptions windowing mode). */
-+    public static final int METHOD_NATIVE = 0;
-+    /** LMOFreeform app (follows its own native/LMO launch mode setting). */
-+    public static final int METHOD_LMO = 1;
-+    /** App bubble from SystemUI. */
-+    public static final int METHOD_BUBBLE = 2;
-+
 +    private static final int DEFAULT_THRESHOLD_PERCENT = 60;
-+    private static final int DEFAULT_METHOD = METHOD_LMO;
-+
-+    private static final String LMO_PACKAGE = "com.libremobileos.freeform";
-+    private static final String LMO_ACTION = "com.libremobileos.freeform.START_FREEFORM";
 +
 +    private final Context mContext;
 +    private final boolean mEnabled;
 +    private final float mThreshold;
-+    private final int mMethod;
 +    private boolean mPastThreshold;
 +
 +    public RecentsFreeformGesture(Context context) {
 +        mContext = context;
-+        mEnabled = LauncherPrefs.RECENTS_FREEFORM_GESTURE.get(context);
++        // App bubbles need the shell "create any bubble" feature
++        mEnabled = LauncherPrefs.RECENTS_FREEFORM_GESTURE.get(context)
++                && BubbleFlagHelper.enableCreateAnyBubble();
 +        mThreshold = parseInt(LauncherPrefs.RECENTS_FREEFORM_THRESHOLD.get(context),
 +                DEFAULT_THRESHOLD_PERCENT) / 100f;
-+        mMethod = parseInt(LauncherPrefs.RECENTS_FREEFORM_METHOD.get(context), DEFAULT_METHOD);
 +    }
 +
 +    private static int parseInt(@Nullable String value, int fallback) {
@@ -222,56 +200,8 @@ index 0000000..9f0fac9
 +        return task;
 +    }
 +
-+    /** Opens the task as a floating window with the chosen method. */
++    /** Opens the task as an app bubble. */
 +    public void launch(Task task) {
-+        switch (mMethod) {
-+            case METHOD_NATIVE:
-+                launchNative(task);
-+                break;
-+            case METHOD_BUBBLE:
-+                launchBubble(task);
-+                break;
-+            case METHOD_LMO:
-+            default:
-+                launchLmo(task);
-+                break;
-+        }
-+    }
-+
-+    private void launchNative(Task task) {
-+        DisplayMetrics dm = mContext.getResources().getDisplayMetrics();
-+        int w = Math.round(dm.widthPixels * 0.8f);
-+        int h = Math.round(dm.heightPixels * 0.5f);
-+        int left = (dm.widthPixels - w) / 2;
-+        int top = (dm.heightPixels - h) / 2;
-+        ActivityOptions options = ActivityOptions.makeBasic();
-+        options.setLaunchWindowingMode(WINDOWING_MODE_FREEFORM);
-+        options.setLaunchBounds(new Rect(left, top, left + w, top + h));
-+        int taskId = task.key.id;
-+        UI_HELPER_EXECUTOR.execute(() -> {
-+            if (!ActivityManagerWrapper.getInstance().startActivityFromRecents(taskId, options)) {
-+                Log.w(TAG, "Native freeform launch failed for task " + taskId);
-+            }
-+        });
-+    }
-+
-+    private void launchLmo(Task task) {
-+        ComponentName component = task.topActivity != null
-+                ? task.topActivity : task.key.getComponent();
-+        Intent intent = new Intent(LMO_ACTION)
-+                .setPackage(LMO_PACKAGE)
-+                .putExtra("packageName", component.getPackageName())
-+                .putExtra("activityName", component.getClassName())
-+                .putExtra("userId", task.key.userId)
-+                .putExtra("taskId", task.key.id);
-+        try {
-+            mContext.sendBroadcast(intent);
-+        } catch (RuntimeException e) {
-+            Log.w(TAG, "LMOFreeform broadcast failed", e);
-+        }
-+    }
-+
-+    private void launchBubble(Task task) {
 +        Intent intent = mContext.getPackageManager()
 +                .getLaunchIntentForPackage(task.key.getPackageName());
 +        if (intent == null) {
@@ -287,10 +217,10 @@ index 0000000..9f0fac9
 +}
 diff --git a/res/values-in/freeform_gesture_strings.xml b/res/values-in/freeform_gesture_strings.xml
 new file mode 100644
-index 0000000..d602dd0
+index 0000000..3644265
 --- /dev/null
 +++ b/res/values-in/freeform_gesture_strings.xml
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,21 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
 +     Copyright (C) 2026 kingD2N
@@ -308,19 +238,16 @@ index 0000000..d602dd0
 +     limitations under the License.
 +-->
 +<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-+    <string name="pref_recents_freeform_gesture_title">Geser ke atas untuk jendela mengambang</string>
-+    <string name="pref_recents_freeform_gesture_summary">Geser ke atas dari aplikasi dan terus naik sampai terasa getar, lalu lepas untuk membukanya di jendela mengambang</string>
++    <string name="pref_recents_freeform_gesture_title">Geser ke atas untuk gelembung aplikasi</string>
++    <string name="pref_recents_freeform_gesture_summary">Geser ke atas dari aplikasi dan terus naik sampai terasa getar, lalu lepas untuk membukanya sebagai gelembung</string>
 +    <string name="pref_recents_freeform_threshold_title">Jarak geser</string>
-+    <string name="pref_recents_freeform_method_title">Metode jendela mengambang</string>
-+    <string name="pref_recents_freeform_method_native">Freeform bawaan</string>
-+    <string name="pref_recents_freeform_method_bubble">Gelembung aplikasi</string>
 +</resources>
 diff --git a/res/values/freeform_gesture_strings.xml b/res/values/freeform_gesture_strings.xml
 new file mode 100644
-index 0000000..4efcedc
+index 0000000..756ccc7
 --- /dev/null
 +++ b/res/values/freeform_gesture_strings.xml
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,42 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!--
 +     Copyright (C) 2026 kingD2N
@@ -338,12 +265,10 @@ index 0000000..4efcedc
 +     limitations under the License.
 +-->
 +<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-+    <!-- Swipe up from an app to open it as a floating window -->
-+    <string name="pref_recents_freeform_gesture_title">Swipe up for floating window</string>
-+    <string name="pref_recents_freeform_gesture_summary">Swipe up from an app and keep going past the vibration, then release to open it in a floating window</string>
++    <!-- Swipe up from an app to open it as an app bubble -->
++    <string name="pref_recents_freeform_gesture_title">Swipe up for app bubble</string>
++    <string name="pref_recents_freeform_gesture_summary">Swipe up from an app and keep going past the vibration, then release to open it as a bubble</string>
 +    <string name="pref_recents_freeform_threshold_title">Swipe distance</string>
-+    <string name="pref_recents_freeform_method_title">Floating window method</string>
-+
 +    <string-array name="pref_recents_freeform_threshold_entries" translatable="false">
 +        <item>45%</item>
 +        <item>50%</item>
@@ -364,26 +289,12 @@ index 0000000..4efcedc
 +        <item>75</item>
 +        <item>80</item>
 +    </string-array>
-+
-+    <string name="pref_recents_freeform_method_native">Native freeform</string>
-+    <string name="pref_recents_freeform_method_lmo">LMOFreeform</string>
-+    <string name="pref_recents_freeform_method_bubble">App bubble</string>
-+    <string-array name="pref_recents_freeform_method_entries" translatable="false">
-+        <item>@string/pref_recents_freeform_method_native</item>
-+        <item>@string/pref_recents_freeform_method_lmo</item>
-+        <item>@string/pref_recents_freeform_method_bubble</item>
-+    </string-array>
-+    <string-array name="pref_recents_freeform_method_values" translatable="false">
-+        <item>0</item>
-+        <item>1</item>
-+        <item>2</item>
-+    </string-array>
 +</resources>
 diff --git a/res/xml/launcher_preferences.xml b/res/xml/launcher_preferences.xml
-index 3ef7795..49f923c 100644
+index 3ef7795..fcbeb49 100644
 --- a/res/xml/launcher_preferences.xml
 +++ b/res/xml/launcher_preferences.xml
-@@ -33,6 +33,33 @@
+@@ -33,6 +33,23 @@
          android:title="@string/pref_sleep_gesture_title"
          android:summary="@string/pref_sleep_gesture_summary" />
  
@@ -404,32 +315,20 @@ index 3ef7795..49f923c 100644
 +        android:title="@string/pref_recents_freeform_threshold_title"
 +        launcher:useSimpleSummaryProvider="true" />
 +
-+    <DropDownPreference
-+        android:defaultValue="1"
-+        android:dependency="pref_recents_freeform_gesture"
-+        android:entries="@array/pref_recents_freeform_method_entries"
-+        android:entryValues="@array/pref_recents_freeform_method_values"
-+        android:key="pref_recents_freeform_method"
-+        android:persistent="true"
-+        android:title="@string/pref_recents_freeform_method_title"
-+        launcher:useSimpleSummaryProvider="true" />
-+
      <com.android.launcher3.settings.NotificationDotsPreference
          android:key="pref_icon_badging"
          android:title="@string/notification_dots_title"
 diff --git a/src/com/android/launcher3/LauncherPrefs.kt b/src/com/android/launcher3/LauncherPrefs.kt
-index c624c35..f8eb2f3 100644
+index c624c35..56ea53f 100644
 --- a/src/com/android/launcher3/LauncherPrefs.kt
 +++ b/src/com/android/launcher3/LauncherPrefs.kt
-@@ -268,6 +268,12 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
+@@ -268,6 +268,10 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
          @JvmField val SLEEP_GESTURE = backedUpItem("pref_sleep_gesture", false)
          @JvmField val WORKSPACE_LOCK = backedUpItem("pref_workspace_lock", false)
          @JvmField
 +        val RECENTS_FREEFORM_GESTURE = backedUpItem("pref_recents_freeform_gesture", false)
 +        @JvmField
 +        val RECENTS_FREEFORM_THRESHOLD = backedUpItem("pref_recents_freeform_threshold", "60")
-+        @JvmField
-+        val RECENTS_FREEFORM_METHOD = backedUpItem("pref_recents_freeform_method", "1")
 +        @JvmField
          val PROMISE_ICON_IDS = nonRestorableItem(InstallSessionHelper.PROMISE_ICON_IDS, "")
          @JvmField val WORK_EDU_STEP = backedUpItem("showed_work_profile_edu", 0)
