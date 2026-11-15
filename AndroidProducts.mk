@@ -5,4 +5,4 @@
 #
 
 PRODUCT_MAKEFILES := \
-    $(LOCAL_DIR)/custom_ingres.mk
+    $(LOCAL_DIR)/alpha_ingres.mk

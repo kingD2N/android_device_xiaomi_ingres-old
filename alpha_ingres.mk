@@ -11,15 +11,21 @@ TARGET_DECRYPTED_DATA ?= true
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
-# Inherit from common lineage configuration
-# PixelOS
-TARGET_DISABLE_EPPE := true
+# AlphaDroid
+# TARGET_BUILD_PACKAGE: 1 = vanilla, 2 = microG, 3 = GApps (diatur build-alpha.sh lewat GAPPS=)
+TARGET_BUILD_PACKAGE ?= 3
+TARGET_INCLUDE_PIXEL_LAUNCHER ?= true
+ALPHA_MAINTAINER := D2N
+ALPHA_BUILD_TYPE := Unofficial
 TARGET_SCREEN_WIDTH := 1080
 TARGET_SCREEN_HEIGHT := 2400
 TARGET_BOOT_ANIMATION_RESOLUTION := 1080
-$(call inherit-product, vendor/custom/config/common_full_phone.mk)
+TARGET_HAS_UDFPS := true
 
-PRODUCT_NAME := custom_ingres
+# Inherit from common AlphaDroid configuration
+$(call inherit-product, vendor/alpha/config/common_full_phone.mk)
+
+PRODUCT_NAME := alpha_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi

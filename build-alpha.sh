@@ -1,36 +1,36 @@
 #!/usr/bin/env bash
 #
-# Build PixelOS (seventeen, Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build AlphaDroid (alpha-17.0, Android 17) untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-pixelos.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-pixelos.sh sync       # hanya sync source
-#   bash build-pixelos.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-pixelos.sh status     # lihat progres build yang sedang jalan
-#   bash build-pixelos.sh upload     # upload ulang isi ~/hasil-pixelos ke GoFile
-#   bash build-pixelos.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-pixelos.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-pixelos.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-alpha.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-alpha.sh sync       # hanya sync source
+#   bash build-alpha.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-alpha.sh status     # lihat progres build yang sedang jalan
+#   bash build-alpha.sh upload     # upload ulang isi ~/hasil-alpha ke GoFile
+#   bash build-alpha.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-alpha.sh bersih ~/aospa   # hapus source ROM lain / folder lama
+#   bash build-alpha.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-pixelos.sh):
-#   SRC=~/pixelos      folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=user bash build-alpha.sh):
+#   SRC=~/alpha        folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
-#   VARIANT=user       user (rilis, default) / userdebug / eng
+#   VARIANT=userdebug  userdebug (default) / user / eng
 #   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
+#   GAPPS=1            dengan GApps (default) / GAPPS=0 vanilla / GAPPS=both dua-duanya
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
 
 set -uo pipefail
 
-ROM=pixelos
-ROM_NAME="PixelOS 17"
-ROM_MANIFEST="https://github.com/PixelOS-AOSP/android_manifest"; ROM_BRANCH="seventeen"
-SRC="${SRC:-$HOME/pixelos}"
-VARIANT="${VARIANT:-user}"
-SESSION="pixelos"
-LOG="$HOME/build-pixelos.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/pixelos-17/local_manifests/pixelos.xml"
-HASIL_DIR="$HOME/hasil-pixelos"
+ROM_NAME="AlphaDroid 17"
+ROM_MANIFEST="https://github.com/AlphaDroid-Project/manifest"; ROM_BRANCH="alpha-17.0-gitlab"
+SRC="${SRC:-$HOME/alpha}"
+VARIANT="${VARIANT:-userdebug}"
+SESSION="alpha"
+LOG="$HOME/build-alpha.log"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/alpha-17.0/local_manifests/alpha.xml"
+HASIL_DIR="$HOME/hasil-alpha"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -64,6 +64,7 @@ if [ "$CMD" = "bersih" ]; then
     # folder hasil-* (zip ROM jadi) tidak dihapus otomatis; sebut sendiri kalau mau dihapus
     for d in "$HOME/los24" "$HOME/lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
              "$HOME/uwu" "$HOME/infinity" "$HOME/ascp" "$HOME/aospa" "$HOME/axion" "$HOME/penguin" "$HOME/evox" \
+             "$HOME/pixelos" "$HOME/build-pixelos.log" "$HOME/pixelos-sisa-lama" \
              "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
@@ -80,7 +81,7 @@ if [ "$CMD" = "bersih" ]; then
     echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris uwu infinity ascp evox pixelos; do
+    for s in los24 aospa lunaris uwu infinity ascp evox pixelos alpha; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -99,7 +100,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -155,7 +156,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/pixelos-sisa-lama"
+    local known d bak="$HOME/alpha-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -168,7 +169,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/pixelos-sisa-lama"
+    local known d bak="$HOME/alpha-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -228,10 +229,34 @@ fix_dolby_vision() {
 unpatch_source() {
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
+    local r
+    for r in device/xiaomi/ingres device/xiaomi/sm8450-common hardware/xiaomi; do
+        [ -e "$r/.git" ] || continue
+        git -C "$r" diff --quiet 2>/dev/null && continue
+        git -C "$r" checkout -q -- . 2>/dev/null || true
+    done
+}
+
+# AlphaDroid 17 tidak punya vendor/lineage (diganti vendor/alpha). Path vendor/lineage/X
+# di device tree yang punya padanan vendor/alpha/X diarahkan ke sana (mis.
+# BoardConfigReservedSize.mk). Ditambal di source saja, repo-nya tetap untuk ROM lain.
+fix_vendor_lineage() {
+    [ -d vendor/alpha ] || return 0
+    [ -d vendor/lineage ] && return 0
+    local f p
+    for f in $(grep -rl --include='*.mk' --include='*.bp' 'vendor/lineage/' \
+               device/xiaomi/ingres device/xiaomi/sm8450-common hardware/xiaomi 2>/dev/null); do
+        for p in $(grep -o 'vendor/lineage/[A-Za-z0-9_./-]*' "$f" | sort -u); do
+            [ -e "vendor/alpha/${p#vendor/lineage/}" ] || { info "Catatan: $p (di $f) tidak ada padanannya di vendor/alpha"; continue; }
+            sed -i "s#$p#vendor/alpha/${p#vendor/lineage/}#g" "$f"
+            info "Tambalan: $p -> vendor/alpha/${p#vendor/lineage/} ($f)"
+        done
+    done
 }
 patch_source() {
     fix_dolby_vision
     fix_gamekey
+    fix_vendor_lineage
 }
 
 # ------------------------------------------------------------------ sync
@@ -263,9 +288,9 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != pixelos.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != alpha.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/pixelos.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/alpha.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -277,7 +302,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-pixelos.log"
+    local n slog="$HOME/sync-alpha.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -295,6 +320,11 @@ do_sync() {
         exit 1
     fi
 
+    # source AlphaDroid sebagian besar ada di GitLab
+    if ! [ -f vendor/alpha/config/common_full_phone.mk ]; then
+        err "vendor/alpha belum lengkap (repo GitLab AlphaDroid tidak ter-sync?). Lihat $slog"
+        exit 1
+    fi
     # pastikan bagian penting ingres benar-benar lengkap
     if ! [ -f vendor/xiaomi/ingres/ingres-vendor.mk ] \
         || ! [ -f device/xiaomi/sm8450-common/common.mk ] \
@@ -313,7 +343,10 @@ do_sync() {
 # Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
 # lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
 fix_kernel_headers() {
-    local g=out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes
+    local g
+    for g in out/soong/.intermediates/vendor/{alpha,lineage}/build/soong/generated_kernel_includes; do
+        [ -d "$g" ] && break
+    done
     [ -d "$g" ] || return 0
     if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
         || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
@@ -345,6 +378,12 @@ do_build() {
         *) err "VARIANT tidak dikenal: $VARIANT (pakai: user | userdebug | eng | both)"; exit 1 ;;
     esac
     info "Varian build: $variant_list"
+    local gms_list g
+    case "${GAPPS:-1}" in
+        both|2|semua) gms_list="3 1" ;;
+        0|no|tidak|vanilla) gms_list="1" ;;
+        *) gms_list="3" ;;
+    esac
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
     local start rc
@@ -354,7 +393,9 @@ do_build() {
     source build/envsetup.sh >/dev/null
     mkdir -p "$HASIL_DIR"
     for v in $variant_list; do
-        build_rom "$jobs" "$v"
+        for g in $gms_list; do
+            build_rom "$jobs" "$v" "$g"
+        done
     done
     echo "Durasi total: $(( ($(date +%s) - start) / 60 )) menit"
     ok "BUILD BERHASIL"
@@ -366,19 +407,46 @@ do_build() {
     fi
 }
 
-# Build ROM: $1 = jumlah job, $2 = user / userdebug / eng (PixelOS selalu membawa GApps)
+# Nama release untuk lunch (alpha_ingres-<release>-<varian>). AlphaDroid 17 memakai
+# release config LineageOS/AOSP; nama persisnya dicari dari source, cp2a dicoba dulu.
+find_release() {
+    local r cands
+    cands=$( { echo cp2a
+               ls build/release/release_configs vendor/alpha/release/release_configs 2>/dev/null \
+                   | sed -n 's/^\([a-z][a-z][0-9][a-z]\)\.textproto$/\1/p' | sort -r
+               echo bp4a; echo trunk_staging; } | awk '!x[$0]++')
+    for r in $cands; do
+        if lunch "alpha_ingres-$r-userdebug" >/dev/null 2>&1; then
+            echo "$r"; return 0
+        fi
+    done
+    return 1
+}
+
+# Build ROM: $1 = jumlah job, $2 = user / userdebug / eng, $3 = 3 (GApps) / 1 (vanilla)
 build_rom() {
-    local jobs="$1" variant="$2" rc vstart name="PixelOS $2"
+    local jobs="$1" variant="$2" pkg="$3" rc vstart name
     vstart=$(date +%s)
+    export TARGET_BUILD_PACKAGE="$pkg"
+    if [ "$pkg" = 3 ]; then name="AlphaDroid GApps $variant"; else name="AlphaDroid vanilla $variant"; fi
     info "Build $name"
-    lunch "custom_ingres-cp2a-$variant" || { err "lunch custom_ingres-cp2a-$variant gagal (cek local manifest / sync)"; exit 1; }
-    # user <-> userdebug: file varian lama masih tertinggal di out/ -> installclean saat berganti
-    if [ -f .variant-ingres ] && [ "$(cat .variant-ingres)" != "$variant" ]; then
-        info "Varian berganti ($(cat .variant-ingres) -> $variant): installclean dulu"
+    if [ -z "${ALPHA_RELEASE:-}" ]; then
+        ALPHA_RELEASE=$(find_release) || {
+            err "lunch alpha_ingres gagal untuk semua release (cek local manifest / sync). Pesan lunch:"
+            lunch "alpha_ingres-cp2a-$variant"
+            exit 1
+        }
+        info "Release: $ALPHA_RELEASE"
+    fi
+    lunch "alpha_ingres-$ALPHA_RELEASE-$variant" || { err "lunch alpha_ingres-$ALPHA_RELEASE-$variant gagal"; exit 1; }
+    # GApps <-> vanilla atau user <-> userdebug: file varian lama masih tertinggal
+    # di out/ dan ikut masuk zip kalau tidak dibersihkan -> installclean saat berganti
+    if [ -f .variant-ingres ] && [ "$(cat .variant-ingres)" != "$pkg $variant" ]; then
+        info "Varian berganti ($(cat .variant-ingres) -> $pkg $variant): installclean dulu"
         m installclean >/dev/null 2>&1 || true
     fi
-    echo "$variant" > .variant-ingres
-    m pixelos -j"$jobs" 2>&1 | tee "$LOG"
+    echo "$pkg $variant" > .variant-ingres
+    m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
 
@@ -400,7 +468,7 @@ build_rom() {
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/PixelOS_*ingres*.zip 2>/dev/null | grep -v target_files | head -n 1)
+    zip=$(ls -t "$p"/AlphaDroid-*ingres*.zip 2>/dev/null | grep -v target_files | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
     # nama zip/img user dan userdebug bisa sama -> selain user diberi akhiran varian
     local sfx="" out img

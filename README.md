@@ -23,6 +23,22 @@ Front camera | 20MP IMX596 in-display
 
 ![POCO F4 GT](https://i01.appmifile.com/webfile/globalimg/products/pc/poco-f4-gt/specs01.png "POCO F4 GT in all colours")
 
+## Build AlphaDroid 17 (alpha-17.0, Android 17)
+
+Branch `alpha-17.0` berisi produk `alpha_ingres` (vendor/alpha), local manifest
+`local_manifests/alpha.xml` dan script `build-alpha.sh`. Common, vendor, kernel,
+kamera dan Dolby sama dengan set A17 LineageOS 24 / PixelOS.
+
+```
+curl -fsSL -o ~/build-alpha.sh "https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/alpha-17.0/build-alpha.sh"
+bash ~/build-alpha.sh                    # GApps, userdebug
+GAPPS=0 bash ~/build-alpha.sh            # vanilla
+VARIANT=both GAPPS=both bash ~/build-alpha.sh
+```
+
+Source AlphaDroid 17 sebagian besar ada di GitLab (gitlab.com/alphadroid-project),
+jadi server build harus bisa mengakses GitLab.
+
 ## Build LineageOS 24.0 (Android 17)
 
 | Bagian | Repo | Branch |
