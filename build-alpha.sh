@@ -227,22 +227,17 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
-# Display sm8450 yang dipin AlphaDroid masih membawa stub kosong libvmmem, padahal
-# library aslinya sudah ada di vendor/qcom/opensource/libvmmem (LineageOS terbaru sudah
-# membuang stub itu) -> "libvmmem already defined". Buang stub-nya, header tetap.
+# Display sm8450 yang dipin AlphaDroid masih membawa stub libvmmem (library kosong +
+# libvmmem_headers), padahal library aslinya ada di vendor/qcom/opensource/libvmmem
+# -> "libvmmem / libvmmem_headers already defined". LineageOS sudah me-revert kedua
+# stub itu ("Revert vmmem: Add dummy libvmmem shared_lib" dan "...headers available");
+# ikuti: kosongkan Android.bp stub, display memakai library & header yang asli.
 fix_libvmmem() {
     local f=hardware/qcom-caf/sm8450/display/libvmmem/Android.bp
     [ -f "$f" ] && [ -f vendor/qcom/opensource/libvmmem/Android.bp ] || return 0
-    grep -q 'cc_library_shared' "$f" || return 0
-    python3 - "$f" <<'PY' && info "Tambalan: stub libvmmem di display sm8450 dibuang (pakai vendor/qcom/opensource/libvmmem)"
-import re, sys
-p = sys.argv[1]
-s = open(p).read()
-s2 = re.sub(r'cc_library_shared\s*\{[^{}]*name:\s*"libvmmem"[^{}]*\}\s*', '', s)
-if s2 == s:
-    sys.exit(1)
-open(p, "w").write(s2)
-PY
+    grep -q 'name: *"libvmmem' "$f" || return 0
+    echo '// ingres (build-alpha.sh): stub dibuang, pakai vendor/qcom/opensource/libvmmem' > "$f"
+    info "Tambalan: stub libvmmem di display sm8450 dibuang (pakai vendor/qcom/opensource/libvmmem)"
 }
 
 unpatch_source() {
