@@ -17,6 +17,7 @@
 #   VARIANT=userdebug  userdebug (default) / user / eng
 #   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   GAPPS=1            dengan GApps (default) / GAPPS=0 vanilla / GAPPS=both dua-duanya
+#   ALPHA_MIRROR=auto  sumber source AlphaDroid: auto (GitLab, kalau gagal Codeberg) / gitlab / codeberg
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -100,7 +101,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' ALPHA_MIRROR='${ALPHA_MIRROR:-auto}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -259,6 +260,60 @@ patch_source() {
     fix_vendor_lineage
 }
 
+# Sebagian besar source AlphaDroid 17 (remote alpha-gitlab) ada di GitLab. Kalau server
+# tidak bisa mengambil dari GitLab, project alpha-gitlab dipindah ke mirror Codeberg
+# (remote alpha-codeberg, sudah ada di manifest AlphaDroid) lewat alpha-mirror.xml.
+probe_remote() {   # $1 = URL repo -> 0 kalau branch alpha-17.0 bisa dibaca
+    local out
+    out=$(GIT_TERMINAL_PROMPT=0 timeout 90 git ls-remote "$1" refs/heads/alpha-17.0 2>&1)
+    if [ -n "$out" ] && grep -q 'refs/heads/alpha-17.0' <<<"$out"; then return 0; fi
+    echo "   $1 -> $(echo "${out:-tidak ada jawaban}" | tail -n 2 | tr '\n' ' ')"
+    return 1
+}
+
+pick_alpha_mirror() {
+    local snip=.repo/manifests/snippets/alpha.xml mirror=.repo/local_manifests/alpha-mirror.xml
+    case "${ALPHA_MIRROR:-auto}" in
+        gitlab) rm -f "$mirror"; info "Source AlphaDroid: GitLab (dipaksa)"; return 0 ;;
+    esac
+    if [ "${ALPHA_MIRROR:-auto}" = auto ] && probe_remote https://gitlab.com/alphadroid-project/vendor_alpha; then
+        rm -f "$mirror"; info "Source AlphaDroid: GitLab"; return 0
+    fi
+    info "GitLab tidak bisa diakses dari server, coba mirror Codeberg"
+    if ! probe_remote https://codeberg.org/alphadroid-project/vendor_alpha; then
+        err "GitLab dan Codeberg AlphaDroid sama-sama tidak bisa diakses dari server (lihat pesan di atas)."
+        echo "   Kirim screenshot ini. Cek manual: git ls-remote https://gitlab.com/alphadroid-project/vendor_alpha"
+        exit 1
+    fi
+    [ -f "$snip" ] || { err "$snip tidak ada (repo init gagal?)"; exit 1; }
+    python3 - "$snip" "$mirror" <<'PY' || { err "Gagal membuat $mirror"; exit 1; }
+import sys, copy
+import xml.etree.ElementTree as ET
+src, dst = sys.argv[1], sys.argv[2]
+root = ET.parse(src).getroot()
+out = ET.Element("manifest")
+n = 0
+for p in root.findall("project"):
+    if p.get("remote") != "alpha-gitlab":
+        continue
+    rm = ET.SubElement(out, "remove-project", {"name": p.get("name")})
+    if p.get("path"):
+        rm.set("path", p.get("path"))
+    q = copy.deepcopy(p)
+    q.set("remote", "alpha-codeberg")
+    out.append(q)
+    n += 1
+if hasattr(ET, "indent"):
+    ET.indent(out, "  ")
+with open(dst, "w") as f:
+    f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+    f.write("<!-- dibuat build-alpha.sh: project alpha-gitlab diambil dari mirror Codeberg -->\n")
+    f.write(ET.tostring(out, encoding="unicode") + "\n")
+print(n)
+PY
+    ok "Source AlphaDroid: mirror Codeberg ($(grep -c '<project' "$mirror") project dipindah)"
+}
+
 # ------------------------------------------------------------------ sync
 do_sync() {
     # aturan server: hanya 1 source ROM per akun
@@ -288,9 +343,11 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != alpha.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        case "$(basename "$f")" in alpha.xml|alpha-mirror.xml) continue ;; esac
+        [ -e "$f" ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
     curl -fsSL -o .repo/local_manifests/alpha.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
+    pick_alpha_mirror
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
