@@ -482,7 +482,13 @@ build_variant() {
     local gms="$1" jobs="$2" rc vstart name
     vstart=$(date +%s)
     export WITH_GMS="$gms"
-    if [ "$gms" = true ]; then name="GApps"; else name="vanilla (tanpa GApps)"; fi
+    if [ "$gms" = true ]; then
+        name="GApps"
+        export RELAX_USES_LIBRARY_CHECK=true   # APK Google punya uses-library opsional
+    else
+        name="vanilla (tanpa GApps)"
+        unset RELAX_USES_LIBRARY_CHECK
+    fi
     info "Build $name"
     breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal (cek local manifest / sync)"; exit 1; }
     # GApps <-> vanilla: file GApps lama masih tertinggal di out/ -> installclean
