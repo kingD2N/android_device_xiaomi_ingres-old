@@ -15,7 +15,7 @@ $(call inherit-product, device/xiaomi/ingres/device.mk)
 # TARGET_BUILD_PACKAGE: 1 = vanilla, 2 = microG, 3 = GApps (diatur build-alpha.sh lewat GAPPS=)
 TARGET_BUILD_PACKAGE ?= 3
 TARGET_INCLUDE_PIXEL_LAUNCHER ?= true
-ALPHA_MAINTAINER := D2N
+ALPHA_MAINTAINER := kingD2N
 ALPHA_BUILD_TYPE := Unofficial
 TARGET_SCREEN_WIDTH := 1080
 TARGET_SCREEN_HEIGHT := 2400
