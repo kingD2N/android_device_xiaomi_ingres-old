@@ -98,7 +98,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -281,7 +281,44 @@ fix_gms_lfs() {
     done < <(find vendor/gms -name '*.apk' -size -2k 2>/dev/null)
 }
 
+# PackageInstaller: tampilan pemasang aplikasi Lunaris (Compose Material 3 Expressive,
+# port dari Lunaris-AOSP/frameworks_base 16.2). Gaya bisa diganti tanpa build ulang:
+#   settings put secure package_installer_style 2   (0 = AOSP, 1 = dialog, 2 = bottom sheet)
+# Build GApps memasang GooglePackageInstaller (APK prebuilt) yang menimpa PackageInstaller,
+# jadi APK itu dibuang dari daftar paket GApps. GOOGLE_INSTALLER=1 = tetap pemasang Google.
+PI_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0001-PackageInstaller-Lunaris-expressive-UI.patch"
+PI_GMS_DIR=vendor/gms
+fix_package_installer() {
+    [ -f "$PI_PATCH" ] && [ -d frameworks/base/packages/PackageInstaller ] || return 0
+    if git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then   # sudah terpasang
+        drop_google_installer
+        return 0
+    fi
+    if git -C frameworks/base apply "$PI_PATCH"; then
+        info "Tambalan: PackageInstaller tampilan Lunaris"
+    else
+        err "Tambalan PackageInstaller Lunaris tidak cocok lagi (frameworks/base berubah), dilewati"
+        return 0
+    fi
+    drop_google_installer
+}
+drop_google_installer() {
+    [ "${GOOGLE_INSTALLER:-0}" = 1 ] && return 0
+    [ -d "$PI_GMS_DIR" ] || return 0
+    local f changed=0
+    while IFS= read -r f; do
+        sed -i -E '/^[[:space:]]*GooglePackageInstaller[[:space:]]*(\\)?$/d' "$f"
+        changed=1
+    done < <(grep -rlE '^[[:space:]]*GooglePackageInstaller[[:space:]]*(\\)?$' "$PI_GMS_DIR" --include='*.mk' 2>/dev/null)
+    [ $changed = 1 ] && info "Tambalan: GooglePackageInstaller dibuang, GApps pakai PackageInstaller Lunaris"
+    return 0
+}
+
 unpatch_source() {
+    if [ -f "$PI_PATCH" ] && git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then
+        git -C frameworks/base apply -R "$PI_PATCH" || true
+    fi
+    git -C "$PI_GMS_DIR" checkout -q -- . 2>/dev/null || true
     git -C vendor/gms checkout -q -- . 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
@@ -293,6 +330,7 @@ patch_source() {
     fix_dolby_vision
     fix_gamekey
     fix_launcher3_bubble
+    fix_package_installer
     fix_gms_launcher
     fix_gms_lfs
 }
