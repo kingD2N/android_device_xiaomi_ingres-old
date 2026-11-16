@@ -14,6 +14,18 @@ $(call inherit-product, device/xiaomi/ingres/device.mk)
 # Inherit from common lineage configuration
 $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
+# GApps (build-ingres.sh GAPPS=1): paket GApps Android 17 dari Evolution-X vendor_gms (cnb).
+# Pixel Launcher dibuang oleh build-ingres.sh supaya layar utama tetap Trebuchet (Launcher3).
+ifeq ($(WITH_GMS),true)
+$(call inherit-product-if-exists, vendor/gms/gms_full.mk)
+DONT_DEXPREOPT_PREBUILTS := true
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.opa.eligible_device=true \
+    ro.setupwizard.rotation_locked=true \
+    ro.storage_manager.enabled=false \
+    setupwizard.feature.baseline_setupwizard_enabled=true
+endif
+
 PRODUCT_NAME := lineage_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi

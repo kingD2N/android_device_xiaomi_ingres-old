@@ -15,6 +15,9 @@
 #   SRC=~/los24        folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
+#   GAPPS=1            build dengan GApps (default, dari Evolution-X vendor_gms)
+#   GAPPS=0            build vanilla tanpa GApps
+#   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -95,7 +98,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -231,7 +234,55 @@ fix_launcher3_bubble() {
     fi
 }
 
+# ------------------------------------------------------------- GApps
+# Paket GApps Android 17 dari Evolution-X vendor_gms (GitHub, isi APK lewat Git LFS).
+GMS_MANIFEST='<?xml version="1.0" encoding="UTF-8"?>
+<!-- GApps untuk LineageOS 24 ingres (dibuat otomatis oleh build-ingres.sh) -->
+<manifest>
+  <remote name="evo-gms" fetch="https://github.com/Evolution-X" />
+  <project path="vendor/gms" name="vendor_gms" remote="evo-gms" revision="cnb" clone-depth="1" />
+</manifest>'
+want_gms() { [ "${GAPPS:-1}" != 0 ] && [ "${GAPPS:-1}" != vanilla ]; }
+
+# Pixel Launcher di vendor_gms butuh overlay Pixel (recents) yang tidak ada di LineageOS,
+# jadi selalu dibuang: layar utama tetap Trebuchet dengan fitur geser-ke-gelembung.
+fix_gms_launcher() {
+    local f
+    for f in vendor/gms/gms*.mk; do
+        [ -f "$f" ] || continue
+        grep -q '^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$' "$f" || continue
+        sed -i '/^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$/d' "$f"
+        info "Tambalan: Pixel Launcher dibuang dari GApps (tetap Trebuchet)"
+    done
+    return 0
+}
+
+# APK yang tidak terdaftar di .gitattributes vendor_gms ter-checkout sebagai pointer LFS
+# (mis. AmbientStreaming): unduh isinya, kalau gagal keluarkan dari daftar paket.
+fix_gms_lfs() {
+    [ -d vendor/gms ] || return 0
+    local apk name rel
+    while IFS= read -r apk; do
+        head -c 40 "$apk" | grep -q '^version https://git-lfs' || continue
+        rel="${apk#vendor/gms/}"
+        if (cd vendor/gms && git lfs smudge "$rel" < "$rel" > "$rel.lfs") 2>/dev/null \
+                && [ "$(head -c 2 "$apk.lfs")" = PK ]; then
+            mv -f "$apk.lfs" "$apk"
+            info "Tambalan: $(basename "$apk") diunduh dari LFS"
+        else
+            rm -f "$apk.lfs"
+            name="$(basename "$(dirname "$apk")")"
+            sed -i "/^[[:space:]]*${name}[[:space:]]*\\\\\$/d" vendor/gms/gms*.mk
+            info "Tambalan: $name dilewati (APK dari LFS tidak bisa diunduh)"
+        fi
+        if [ -f "$(dirname "$apk")/Android.mk" ] && ! grep -q LOCAL_ENFORCE_USES_LIBRARIES "$(dirname "$apk")/Android.mk"; then
+            sed -i 's|^include \$(BUILD_PREBUILT)|LOCAL_ENFORCE_USES_LIBRARIES := false\n&|' "$(dirname "$apk")/Android.mk"
+        fi
+    done < <(find vendor/gms -name '*.apk' -size -2k 2>/dev/null)
+}
+
 unpatch_source() {
+    git -C vendor/gms checkout -q -- . 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
@@ -242,6 +293,8 @@ patch_source() {
     fix_dolby_vision
     fix_gamekey
     fix_launcher3_bubble
+    fix_gms_launcher
+    fix_gms_lfs
 }
 
 # ------------------------------------------------------------------ sync
@@ -273,9 +326,14 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != ingres.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        case "$(basename "$f")" in ingres.xml|gapps.xml) continue ;; esac
+        [ -e "$f" ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
     curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    if want_gms; then
+        printf '%s\n' "$GMS_MANIFEST" > .repo/local_manifests/gapps.xml
+        info "GApps: vendor/gms (Evolution-X vendor_gms) ikut di-sync"
+    fi
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -356,10 +414,48 @@ do_build() {
     info "ROM: $ROM_NAME"
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
+    local gms_list g
+    case "${GAPPS:-1}" in
+        both|2|semua) gms_list="true false" ;;
+        0|vanilla)    gms_list="false" ;;
+        *)            gms_list="true" ;;
+    esac
+    if [[ "$gms_list" == *true* ]] && ! [ -f vendor/gms/gms_full.mk ]; then
+        err "GApps belum di-sync (vendor/gms tidak ada). Jalankan: bash $SCRIPT   (sync + build)"
+        echo "   atau build vanilla: GAPPS=0 bash $SCRIPT build"
+        exit 1
+    fi
+    mkdir -p "$HASIL_DIR"
+    for g in $gms_list; do
+        build_variant "$g" "$jobs"
+    done
+    echo "Durasi total: $(( ($(date +%s) - start) / 60 )) menit"
+    ok "BUILD BERHASIL"
+    ls -lh "$HASIL_DIR"
+    if [ "${GOFILE:-1}" != 0 ]; then
+        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
+    else
+        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
+    fi
+}
+
+# Build satu varian: $1 = true (GApps) / false (vanilla), $2 = jumlah job
+build_variant() {
+    local gms="$1" jobs="$2" rc vstart name
+    vstart=$(date +%s)
+    export WITH_GMS="$gms"
+    if [ "$gms" = true ]; then name="GApps"; else name="vanilla (tanpa GApps)"; fi
+    info "Build $name"
     breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal (cek local manifest / sync)"; exit 1; }
+    # GApps <-> vanilla: file GApps lama masih tertinggal di out/ -> installclean
+    if [ -f .gms-ingres ] && [ "$(cat .gms-ingres)" != "$gms" ]; then
+        info "Varian GApps berganti: installclean dulu"
+        m installclean >/dev/null 2>&1 || true
+    fi
+    echo "$gms" > .gms-ingres
     m bacon -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
-    echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
+    echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
 
     if [ "$rc" -ne 0 ]; then
         err "Build gagal. Ini penyebabnya (kirim screenshot bagian ini):"
@@ -374,23 +470,19 @@ do_build() {
             grep -n -A30 'Traceback (most recent call last)' "$LOG" | tail -n 40
         fi
         echo "------------------------------------------------------------"
-        echo "Setelah source ditambal, lanjutkan dengan: bash $SCRIPT"
+        echo "Setelah source ditambal, lanjutkan dengan: bash $SCRIPT build"
         exit 1
     fi
 
-    local p="out/target/product/ingres" zip
+    local p="out/target/product/ingres" zip out
     zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    mkdir -p "$HASIL_DIR"
-    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-    (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
-    ok "BUILD BERHASIL"
-    ls -lh "$HASIL_DIR"
-    if [ "${GOFILE:-1}" != 0 ]; then
-        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
-    else
-        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
-    fi
+    out="$(basename "$zip")"
+    [ "$gms" = true ] && out="${out%.zip}-GApps.zip"
+    cp "$zip" "$HASIL_DIR/$out"
+    cp $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
+    (cd "$HASIL_DIR" && sha256sum "$out" > "$out.sha256")
+    ok "Selesai: $out"
 }
 
 # ------------------------------------------------------------- GoFile
