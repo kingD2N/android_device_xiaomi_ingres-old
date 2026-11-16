@@ -15,8 +15,9 @@
 # Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-uwu.sh):
 #   SRC=~/uwu          folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
-#   RBE=1              pakai remote build (RBE) server (default: mati, compile lokal;
-#                      hasil unduhan RBE di server ini berulang kali rusak)
+#   RBE=1              paksa pakai remote build (RBE) server
+#   RBE=0              matikan RBE (melepas env server; server bisa menghentikan build)
+#                      bawaan: env server tidak disentuh
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
@@ -495,8 +496,8 @@ do_build() {
     lunch "uwu_ingres-$rel-$VARIANT" || { err "lunch uwu_ingres-$rel-$VARIANT gagal (cek local manifest / sync)"; exit 1; }
     # RBE diatur SETELAH envsetup/lunch (vendorsetup.sh atau profil server bisa menyalakannya lagi)
     local rbe_state
-    if [ "${RBE:-0}" != 1 ]; then
-        # buang semua setelan RBE dari profil server (RBE_DIR, RBE_CXX_EXEC_STRATEGY, ...)
+    if [ "${RBE:-}" = 0 ]; then
+        # (hanya dengan RBE=0) buang semua setelan RBE dari profil server (RBE_DIR, RBE_CXX_EXEC_STRATEGY, ...)
         # dan file konfigurasi env yang bisa mengisinya lagi
         local ev
         for ev in $(compgen -e | grep -E '^RBE_'); do unset "$ev"; done
@@ -536,10 +537,16 @@ do_build() {
         rbe_state=off
         info "RBE mati: semua compile lokal (pakai RBE=1 untuk menyalakan)"
         info "Env build: $(env | grep -E '^(USE_RBE|USE_REWRAPPER|CC_WRAPPER|CXX_WRAPPER|JAVAC_WRAPPER|USE_CCACHE|CCACHE_EXEC)=' | tr '\n' ' ')"
-    else
+    elif [ "${RBE:-}" = 1 ]; then
         [ -f buildspec.mk.rbe-off ] && [ ! -f buildspec.mk ] && mv -f buildspec.mk.rbe-off buildspec.mk
         rbe_state=on
         info "RBE server dipakai (RBE=1)"
+    else
+        # bawaan: JANGAN ubah/lepas variabel lingkungan server (CUSTOM_NINJA_BIN, BASH_ENV,
+        # CC_WRAPPER, RBE_*, ...). Server menghentikan build kalau variabel itu hilang/ditimpa.
+        [ -f buildspec.mk.rbe-off ] && [ ! -f buildspec.mk ] && mv -f buildspec.mk.rbe-off buildspec.mk
+        rbe_state=keep
+        info "Env server tidak diubah (pakai RBE=0 hanya kalau compile RBE bermasalah)"
     fi
     # aturan rewrapper tersimpan di file ninja Soong: kalau status RBE berganti,
     # paksa Soong membuat ulang file ninja supaya perintah compile ikut berubah
