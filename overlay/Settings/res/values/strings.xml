@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+     Copyright (C) 2026 kingD2N
+     SPDX-License-Identifier: Apache-2.0
+-->
+<resources>
+    <!-- Kartu "Maintained by" di Setelan > Tentang ponsel > Model (build unofficial) -->
+    <string name="build_maintainer_summary" translatable="false">kingD2N</string>
+    <!-- Tanpa tombol donasi (bawaan EvoX menunjuk ke donasi pendiri EvoX) -->
+    <string name="build_maintainer_donate_url" translatable="false"></string>
+</resources>

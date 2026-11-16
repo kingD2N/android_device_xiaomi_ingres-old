@@ -32,7 +32,8 @@ PRODUCT_PACKAGES += \
     FrameworksResIngres \
     SystemUIResIngres \
     ApertureResIngres \
-    NfcResIngres
+    NfcResIngres \
+    SettingsResIngres
 
 # Soong namespaces
 PRODUCT_SOONG_NAMESPACES += \
