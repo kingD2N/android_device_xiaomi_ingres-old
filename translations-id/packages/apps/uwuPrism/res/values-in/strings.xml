@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Terjemahan Bahasa Indonesia (kingD2N) -->
+<resources>
+    <string name="app_name">Prism</string>
+    <string name="capture_title">Pengenalan layar</string>
+    <string name="category_capture">Pengenalan layar</string>
+    <string name="three_finger_gesture">Pengenalan layar tiga jari</string>
+    <string name="three_finger_gesture_summary">Geser ke atas dengan tiga jari untuk menangkap layar saat ini</string>
+    <string name="category_ocr_engine">Mesin OCR</string>
+    <string name="ocr_engine_tesseract">Tesseract ringan</string>
+    <string name="ocr_engine_tesseract_summary">Tersedia bawaan untuk bahasa Mandarin dan Inggris, tanpa unduhan model</string>
+    <string name="category_diagnostics">Diagnostik</string>
+    <string name="export_logs">Ekspor log</string>
+    <string name="log_export_failed">Tidak dapat mengekspor log</string>
+    <string name="selection_text">Teks</string>
+    <string name="selection_image">Gambar</string>
+    <string name="selection_hint">Seret pada area kosong untuk menambahkan wilayah</string>
+    <string name="selection_label_text">Teks %1$d</string>
+    <string name="selection_label_image">Gambar %1$d</string>
+    <string name="delete_selection">Hapus wilayah</string>
+    <string name="copy">Salin</string>
+    <string name="more_exports">Opsi ekspor lainnya</string>
+    <string name="export_pdf">PDF</string>
+    <string name="export_txt">TXT</string>
+    <string name="export_images">Gambar</string>
+    <string name="pdf_file_name">uwuPrism.pdf</string>
+    <string name="txt_file_name">uwuPrism.txt</string>
+    <string name="nothing_selected">Tambahkan setidaknya satu wilayah</string>
+    <string name="working">Memproses…</string>
+    <string name="recognizing_region">Mengenali teks %1$d dari %2$d</string>
+    <string name="copy_complete">Teks disalin dan %1$d gambar disimpan</string>
+    <string name="copy_text_complete">Teks disalin</string>
+    <string name="save_images_complete">%1$d gambar disimpan ke Pictures/uwuPrism</string>
+    <string name="export_complete">Ekspor selesai</string>
+    <string name="export_failed">Ekspor gagal: %1$s</string>
+    <string name="capture_failed">Tidak dapat membaca tangkapan layar</string>
+    <string name="close">Tutup</string>
+</resources>

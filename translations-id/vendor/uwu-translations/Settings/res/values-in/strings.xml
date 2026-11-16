@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Terjemahan Bahasa Indonesia (kingD2N) -->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="status_bar_double_tap_to_sleep_title">Ketuk dua kali untuk tidur</string>
+    <string name="status_bar_double_tap_to_sleep_summary">Ketuk dua kali bilah status atau layar kunci untuk mematikan layar</string>
+    <string name="live_display_summary">Optimalkan layar sesuai waktu dan kondisi sekitar untuk meningkatkan keterbacaan dan mengurangi ketegangan mata</string>
+    <string name="live_display_mode">Mode tampilan</string>
+    <string name="live_display_color_temperature_title">Suhu warna</string>
+    <string name="live_display_color_temperature_summary">Siang: <xliff:g id="day_temperature">%1$d</xliff:g>K  Malam: <xliff:g id="night_temperature">%2$d</xliff:g>K</string>
+    <string name="live_display_day">Siang</string>
+    <string name="live_display_night">Malam</string>
+    <string name="live_display_outdoor_mode_title">Mode luar ruangan otomatis</string>
+    <string name="live_display_outdoor_mode_summary">Otomatis menaikkan kecerahan dan saturasi di bawah cahaya terang</string>
+    <string name="live_display_anti_flicker_title">Anti kedip</string>
+    <string name="live_display_anti_flicker_summary">Kurangi kedipan dan ketegangan mata dalam cahaya redup. Fitur ini dapat menurunkan akurasi warna dan memengaruhi tampilan sebagian konten.</string>
+    <string name="live_display_low_power_title">Kurangi konsumsi daya</string>
+    <string name="live_display_low_power_summary">Sesuaikan layar untuk menghemat daya tanpa menurunkan kualitas tampilan</string>
+    <string name="live_display_enhance_color_title">Tingkatkan warna</string>
+    <string name="live_display_enhance_color_summary">Tingkatkan warna kulit, pemandangan, dan gambar lainnya</string>
+    <string name="live_display_color_profile_title">Profil warna</string>
+    <string name="live_display_color_profile_standard_title">Standar</string>
+    <string name="live_display_color_profile_standard_summary">Warna akurat dan putih cerah</string>
+    <string name="live_display_color_profile_natural_title">Alami</string>
+    <string name="live_display_color_profile_natural_summary">Warna dan warna kulit yang alami</string>
+    <string name="live_display_color_profile_dynamic_title">Cerah</string>
+    <string name="live_display_color_profile_dynamic_summary">Warna yang ditingkatkan dan putih cerah</string>
+    <string name="live_display_color_profile_cinema_title">Sinema</string>
+    <string name="live_display_color_profile_cinema_summary">Warna akurat untuk video</string>
+    <string name="live_display_color_profile_astronomy_title">Astronomi</string>
+    <string name="live_display_color_profile_astronomy_summary">Gunakan warna merah tua untuk menjaga penglihatan malam</string>
+    <string name="live_display_color_profile_photography_title">Fotografi</string>
+    <string name="live_display_color_profile_photography_summary">Warna akurat untuk foto</string>
+    <string name="live_display_color_profile_basic_title">Dasar</string>
+    <string name="live_display_color_profile_basic_summary">Gunakan tampilan tanpa kalibrasi</string>
+    <string name="live_display_color_profile_adaptive_title">Adaptif</string>
+    <string name="live_display_color_profile_adaptive_summary">Sesuaikan warna dengan kondisi sekitar</string>
+    <string name="live_display_color_profile_reading_title">Membaca</string>
+    <string name="live_display_color_profile_reading_summary">Gunakan warna yang lebih hangat untuk mengurangi mata lelah</string>
+    <string name="live_display_color_profile_srgb_summary">Cocok akurat dengan gamut warna sRGB</string>
+    <string name="live_display_color_profile_dci_p3_summary">Cocok akurat dengan gamut warna DCI-P3</string>
+    <string name="live_display_reading_mode_title">Mode baca</string>
+    <string name="live_display_reading_mode_summary">Mode skala abu-abu yang cocok untuk membaca dalam waktu lama</string>
+    <string name="color_calibration_title">Kalibrasi warna</string>
+    <string name="color_calibration_summary">Kalibrasi warna layar</string>
+
+    <string name="wake_when_plugged_or_unplugged_title">Nyalakan saat dicolok atau dicabut</string>
+    <string name="wake_when_plugged_or_unplugged_summary">Nyalakan layar saat daya terhubung atau terputus</string>
+
+    <string name="refresh_rate_title">Kecepatan refresh</string>
+    <string name="refresh_rate_summary_vrr_off">%d Hz</string>
+    <string name="refresh_rate_summary_vrr_on">%d Hz (adaptif)</string>
+    <string name="refresh_rate_vrr_title">Kecepatan refresh adaptif</string>
+    <string name="refresh_rate_vrr_summary">Otomatis menurunkan kecepatan refresh saat layar menganggur untuk menghemat baterai. Pada beberapa layar dapat menyebabkan kedipan atau pergeseran warna</string>
+    <string name="refresh_rate_footer">Kecepatan refresh yang lebih tinggi membuat tampilan lebih mulus, tetapi menambah konsumsi daya</string>
+    <string name="keywords_refresh_rate">refresh rate, kecepatan refresh, mulus, puncak, 60hz, 90hz, 120hz, 144hz, 165hz</string>
+    <string name="battery_saver_refresh_rate_title">Turunkan kecepatan refresh</string>
+    <string name="battery_saver_refresh_rate_summary">Gunakan kecepatan refresh 60 Hz saat Penghemat Baterai aktif untuk menghemat daya</string>
+
+    <string name="icon_manager_title">Ikon bilah status</string>
+    <string name="icon_manager_summary">Atur tampilan ikon di bilah status</string>
+
+    <string name="play_application_detail_indication_summary">Periksa pembaruan</string>
+    <string name="play_application_update_entry_title">Pembaruan aplikasi</string>
+    <string name="software_update_banner_checking">Memeriksa pembaruan…</string>
+    <string name="software_update_banner_up_to_date">Perangkat Anda sudah mutakhir</string>
+    <string name="software_update_banner_update_available">Pembaruan tersedia</string>
+    <string name="software_update_can_be_updated_header">Bawa perangkat Anda lebih jauh</string>
+    <string name="software_update_entry_title">Pembaruan perangkat lunak</string>
+    <string name="software_update_maintainer_title">Maintainer</string>
+    <string name="software_update_pending_update_summary">Ada pembaruan yang menunggu dipasang</string>
+    <string name="software_update_settings_v2_purpose">Lihat dan pasang pembaruan sistem, komponen sistem Google Play, dan aplikasi di satu tempat untuk menjaga keamanan dan kinerja perangkat.</string>
+    <string name="software_update_up_to_date_header">Perangkat Anda sudah mutakhir</string>
+    <string name="software_update_up_to_specific_date_summary">Diperbarui hingga %1$s</string>
+    <string name="system_update_entry_title">Pembaruan sistem</string>
+
+    <string name="about_phone_rom_version_label">Versi uwuAOSP</string>
+    <string name="app_volume">Volume aplikasi</string>
+    <string name="app_volume_title">Atur volume aplikasi tertentu</string>
+    <string name="app_volume_summary">Tampilkan kontrol volume aplikasi di panel volume</string>
+</resources>

@@ -20,6 +20,7 @@
 #                      bawaan: env server tidak disentuh
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
+#   INDO=0             jangan pasang terjemahan Bahasa Indonesia (default: dipasang)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
 
@@ -272,7 +273,36 @@ for item in sys.argv[1:]:
 PY
 }
 
+# Bahasa Indonesia: uwuAOSP baru punya terjemahan Mandarin (zh-rCN) untuk teks khasnya
+# (Settings/SystemUI lewat RRO uwu-translations, Ekstensi uwuAOSP, Prism). Berkas
+# values-in ada di device/xiaomi/ingres/translations-id (struktur sama dengan source)
+# dan disalin ke repo terkait. INDO=0 untuk melewati.
+ID_DIR=device/xiaomi/ingres/translations-id
+add_indonesian() {
+    [ "${INDO:-1}" = 0 ] && return 0
+    [ -d "$ID_DIR" ] || return 0
+    local f n=0
+    while IFS= read -r f; do
+        f="${f#"$ID_DIR"/}"
+        [ -d "${f%%/res/*}" ] || continue
+        mkdir -p "$(dirname "$f")"
+        cp -f "$ID_DIR/$f" "$f" && n=$((n + 1))
+    done < <(find "$ID_DIR" -type f -name '*.xml')
+    [ "$n" -gt 0 ] && info "Tambalan: bahasa Indonesia ($n berkas values-in)"
+    return 0
+}
+remove_indonesian() {
+    [ -d "$ID_DIR" ] || return 0
+    local f
+    while IFS= read -r f; do
+        f="${f#"$ID_DIR"/}"
+        rm -f "$f"
+    done < <(find "$ID_DIR" -type f -name '*.xml')
+    return 0
+}
+
 unpatch_source() {
+    remove_indonesian
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     local v
@@ -281,6 +311,7 @@ unpatch_source() {
     done
 }
 patch_source() {
+    add_indonesian
     fix_fsgen_dupes
     fix_dolby_vision
     fix_gamekey
