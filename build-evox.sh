@@ -269,14 +269,27 @@ fix_pixel_launcher() {
     return 0
 }
 
-# vendor/gms (16/11/2026) memasukkan lagi AmbientStreaming tanpa daftar uses-library,
-# build GApps gagal di enforce_uses_libraries. Matikan pemeriksaan itu untuk APK ini saja.
-AMBIENT_MK=vendor/gms/product/packages/privileged_apps/AmbientStreaming/Android.mk
+# vendor/gms (16/11/2026) memasukkan lagi AmbientStreaming, tapi APK-nya tidak
+# terdaftar di .gitattributes, jadi yang ter-checkout cuma pointer Git LFS (130 byte)
+# dan build GApps gagal. Unduh isinya lewat git lfs; kalau gagal, lewati aplikasinya.
+AMBIENT_DIR=vendor/gms/product/packages/privileged_apps/AmbientStreaming
 fix_ambient_streaming() {
-    [ -f "$AMBIENT_MK" ] || return 0
-    grep -q 'LOCAL_ENFORCE_USES_LIBRARIES' "$AMBIENT_MK" && return 0
-    sed -i 's|^include \$(BUILD_PREBUILT)|LOCAL_ENFORCE_USES_LIBRARIES := false\n&|' "$AMBIENT_MK"
-    info "Tambalan: AmbientStreaming (vendor/gms) tanpa cek uses-library"
+    local apk=product/packages/privileged_apps/AmbientStreaming/AmbientStreaming.apk
+    [ -f "vendor/gms/$apk" ] || return 0
+    if head -c 40 "vendor/gms/$apk" | grep -q '^version https://git-lfs'; then
+        if (cd vendor/gms && git lfs smudge "$apk" < "$apk" > "$apk.lfs") 2>/dev/null \
+                && [ "$(head -c 2 "vendor/gms/$apk.lfs")" = PK ]; then
+            mv -f "vendor/gms/$apk.lfs" "vendor/gms/$apk"
+            info "Tambalan: AmbientStreaming.apk diunduh dari LFS (vendor/gms cuma berisi pointer)"
+        else
+            rm -f "vendor/gms/$apk.lfs"
+            sed -i '/^[[:space:]]*AmbientStreaming[[:space:]]*\\$/d' vendor/gms/gms*.mk
+            info "Tambalan: AmbientStreaming dilewati (APK dari LFS tidak bisa diunduh)"
+            return 0
+        fi
+    fi
+    grep -q 'LOCAL_ENFORCE_USES_LIBRARIES' "$AMBIENT_DIR/Android.mk" 2>/dev/null && return 0
+    sed -i 's|^include \$(BUILD_PREBUILT)|LOCAL_ENFORCE_USES_LIBRARIES := false\n&|' "$AMBIENT_DIR/Android.mk"
 }
 
 unpatch_source() {
