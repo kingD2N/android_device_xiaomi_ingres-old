@@ -22,7 +22,6 @@ DONT_DEXPREOPT_PREBUILTS := true
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.opa.eligible_device=true \
     ro.setupwizard.rotation_locked=true \
-    ro.storage_manager.enabled=false \
     setupwizard.feature.baseline_setupwizard_enabled=true
 endif
 
