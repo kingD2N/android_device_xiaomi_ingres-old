@@ -292,7 +292,24 @@ fix_ambient_streaming() {
     sed -i 's|^include \$(BUILD_PREBUILT)|LOCAL_ENFORCE_USES_LIBRARIES := false\n&|' "$AMBIENT_DIR/Android.mk"
 }
 
+# PackageInstaller: tampilan pemasang aplikasi Lunaris (Compose Material 3 Expressive,
+# port dari Lunaris-AOSP/frameworks_base 16.2). Gaya bisa diganti tanpa build ulang:
+#   settings put secure package_installer_style 2   (0 = AOSP, 1 = dialog, 2 = bottom sheet)
+PI_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0001-PackageInstaller-Lunaris-expressive-UI.patch"
+fix_package_installer() {
+    [ -f "$PI_PATCH" ] && [ -d frameworks/base/packages/PackageInstaller ] || return 0
+    git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null && return 0   # sudah terpasang
+    if git -C frameworks/base apply "$PI_PATCH"; then
+        info "Tambalan: PackageInstaller tampilan Lunaris"
+    else
+        err "Tambalan PackageInstaller Lunaris tidak cocok lagi (frameworks/base EvoX berubah), dilewati"
+    fi
+}
+
 unpatch_source() {
+    if [ -f "$PI_PATCH" ] && git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then
+        git -C frameworks/base apply -R "$PI_PATCH" || true
+    fi
     git -C vendor/gms checkout -q -- 'gms*.mk' product/packages/privileged_apps/AmbientStreaming 2>/dev/null || true
     git -C vendor/pixel-style checkout -q -- rro_overlays/PixelConfigOverlayCommon 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
@@ -305,6 +322,7 @@ patch_source() {
     fix_dolby_vision
     fix_gamekey
     fix_launcher3_freeform
+    fix_package_installer
     fix_pixel_launcher
     fix_ambient_streaming
 }
