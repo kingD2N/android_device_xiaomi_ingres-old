@@ -269,8 +269,18 @@ fix_pixel_launcher() {
     return 0
 }
 
+# vendor/gms (16/11/2026) memasukkan lagi AmbientStreaming tanpa daftar uses-library,
+# build GApps gagal di enforce_uses_libraries. Matikan pemeriksaan itu untuk APK ini saja.
+AMBIENT_MK=vendor/gms/product/packages/privileged_apps/AmbientStreaming/Android.mk
+fix_ambient_streaming() {
+    [ -f "$AMBIENT_MK" ] || return 0
+    grep -q 'LOCAL_ENFORCE_USES_LIBRARIES' "$AMBIENT_MK" && return 0
+    sed -i 's|^include \$(BUILD_PREBUILT)|LOCAL_ENFORCE_USES_LIBRARIES := false\n&|' "$AMBIENT_MK"
+    info "Tambalan: AmbientStreaming (vendor/gms) tanpa cek uses-library"
+}
+
 unpatch_source() {
-    git -C vendor/gms checkout -q -- 'gms*.mk' 2>/dev/null || true
+    git -C vendor/gms checkout -q -- 'gms*.mk' product/packages/privileged_apps/AmbientStreaming 2>/dev/null || true
     git -C vendor/pixel-style checkout -q -- rro_overlays/PixelConfigOverlayCommon 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
@@ -283,6 +293,7 @@ patch_source() {
     fix_gamekey
     fix_launcher3_freeform
     fix_pixel_launcher
+    fix_ambient_streaming
 }
 
 # ------------------------------------------------------------------ sync
