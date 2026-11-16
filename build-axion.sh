@@ -210,6 +210,26 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# Gestur geser ke atas di recents -> buka aplikasi sebagai gelembung (app bubble), seperti
+# Pixel Launcher Enhanced. Launcher3 bawaan AxionOS tetap dipakai (hanya ditambal). Aktifkan di
+# Pengaturan Launcher > Overview > "Swipe up for app bubble" (jarak geser bisa diatur).
+L3_DIR=packages/apps/Launcher3
+L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-recents-freeform-gesture.patch"
+fix_launcher3_bubble() {
+    [ -f "$L3_PATCH" ] && [ -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ] || return 0
+    if ! git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then   # belum terpasang
+        if git -C "$L3_DIR" apply "$L3_PATCH"; then
+            info "Tambalan: Launcher3 geser ke atas -> gelembung aplikasi"
+        else
+            err "Tambalan Launcher3 gelembung tidak cocok lagi (Launcher3 AxionOS berubah), dilewati"
+        fi
+    fi
+    # GApps yang membawa Pixel Launcher akan menimpa Launcher3 dan gestur ini tidak jalan
+    if [ -d vendor/gms ] && grep -rqs 'NexusLauncher' vendor/gms --include=*.mk 2>/dev/null; then
+        info "Catatan: vendor/gms memuat Pixel Launcher (NexusLauncher), gestur gelembung hanya jalan di Launcher3"
+    fi
+}
+
 # Package Installer Style: tampilan pemasangan aplikasi ala Lunaris (dialog / bottom sheet,
 # Compose Material3 Expressive; port dari Lunaris-AOSP/frameworks_base 16.2). Blurnya memakai
 # ax_blur asli AxionOS (axion_sdk). Gaya bisa diganti tanpa build ulang:
@@ -252,12 +272,16 @@ unpatch_source() {
         git -C frameworks/base apply -R "$PI_PATCH" || true
     fi
     git -C vendor/gms checkout -q -- '*.mk' 2>/dev/null || true
+    if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
+        git -C "$L3_DIR" apply -R "$L3_PATCH" || true
+    fi
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
 }
 patch_source() {
     fix_dolby_vision
     fix_gamekey
+    fix_launcher3_bubble
     fix_package_installer
 }
 
