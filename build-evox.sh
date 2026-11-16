@@ -18,6 +18,8 @@
 #   GAPPS=1            build dengan GApps (default)
 #   GAPPS=0            build vanilla tanpa GApps
 #   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
+#   PIXEL_LAUNCHER=1   build GApps tetap pakai Pixel Launcher (default: Launcher3,
+#                      supaya fitur geser ke atas -> gelembung aplikasi ikut)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -100,7 +102,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' PIXEL_LAUNCHER='${PIXEL_LAUNCHER:-0}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -241,7 +243,35 @@ fix_launcher3_freeform() {
     fi
 }
 
+# Build GApps EvoX memasang Pixel Launcher (APK prebuilt) yang menimpa Launcher3,
+# jadi fitur Launcher3 di atas tidak ikut. Default: Pixel Launcher dibuang dan
+# overlay Pixel (recents/home) diarahkan balik ke Launcher3. PIXEL_LAUNCHER=1 = tetap.
+PIXEL_OVERLAY=vendor/pixel-style/rro_overlays/PixelConfigOverlayCommon/res/values/strings.xml
+fix_pixel_launcher() {
+    [ "${PIXEL_LAUNCHER:-0}" = 1 ] && return 0
+    [ -d vendor/gms ] || return 0
+    local f changed=0
+    for f in vendor/gms/gms*.mk; do
+        [ -f "$f" ] || continue
+        if grep -q '^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$' "$f"; then
+            sed -i '/^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$/d' "$f"
+            changed=1
+        fi
+    done
+    if [ -f "$PIXEL_OVERLAY" ] && grep -q 'apps.nexuslauncher/com.android.quickstep' "$PIXEL_OVERLAY"; then
+        sed -i \
+            -e 's|"config_recentsComponentName">com.google.android.apps.nexuslauncher/|"config_recentsComponentName">com.android.launcher3/|' \
+            -e 's|"config_secondaryHomePackage">com.google.android.apps.nexuslauncher<|"config_secondaryHomePackage">com.android.launcher3<|' \
+            "$PIXEL_OVERLAY"
+        changed=1
+    fi
+    [ $changed = 1 ] && info "Tambalan: Pixel Launcher dibuang, GApps pakai Launcher3 (PIXEL_LAUNCHER=1 untuk tetap)"
+    return 0
+}
+
 unpatch_source() {
+    git -C vendor/gms checkout -q -- 'gms*.mk' 2>/dev/null || true
+    git -C vendor/pixel-style checkout -q -- rro_overlays/PixelConfigOverlayCommon 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
@@ -252,6 +282,7 @@ patch_source() {
     fix_dolby_vision
     fix_gamekey
     fix_launcher3_freeform
+    fix_pixel_launcher
 }
 
 # ------------------------------------------------------------------ sync
