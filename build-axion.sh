@@ -210,13 +210,55 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# Package Installer Style: tampilan pemasangan aplikasi ala Lunaris (dialog / bottom sheet,
+# Compose Material3 Expressive; port dari Lunaris-AOSP/frameworks_base 16.2). Blurnya memakai
+# ax_blur asli AxionOS (axion_sdk). Gaya bisa diganti tanpa build ulang:
+#   settings put secure package_installer_style 2   (0 = AOSP, 1 = dialog, 2 = bottom sheet)
+# Kalau GApps membawa GooglePackageInstaller (APK prebuilt), APK itu menimpa PackageInstaller
+# dan harus dibuang dari vendor/gms. GOOGLE_INSTALLER=1 = tetap pakai pemasang Google.
+PI_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0001-PackageInstaller-Lunaris-expressive-UI.patch"
+fix_package_installer() {
+    [ -f "$PI_PATCH" ] && [ -d frameworks/base/packages/PackageInstaller ] || return 0
+    if git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then   # sudah terpasang
+        drop_google_installer
+        return 0
+    fi
+    if git -C frameworks/base apply "$PI_PATCH"; then
+        info "Tambalan: PackageInstaller tampilan Lunaris"
+    else
+        err "Tambalan PackageInstaller Lunaris tidak cocok lagi (frameworks/base AxionOS berubah), dilewati"
+        return 0
+    fi
+    drop_google_installer
+}
+drop_google_installer() {
+    [ "${GOOGLE_INSTALLER:-0}" = 1 ] && return 0
+    [ -d vendor/gms ] || return 0
+    local f changed=0
+    while IFS= read -r f; do
+        if grep -q '^[[:space:]]*GooglePackageInstaller[[:space:]]*\\$' "$f"; then
+            sed -i '/^[[:space:]]*GooglePackageInstaller[[:space:]]*\\$/d' "$f"
+            changed=1
+        fi
+        grep -q '^[[:space:]]*GooglePackageInstaller[[:space:]]*$' "$f" \
+            && err "GooglePackageInstaller di $f tanpa backslash: tidak dibuang otomatis"
+    done < <(find vendor/gms -maxdepth 3 -name '*.mk' 2>/dev/null)
+    [ $changed = 1 ] && info "Tambalan: GooglePackageInstaller dibuang, GApps pakai PackageInstaller Lunaris"
+    return 0
+}
+
 unpatch_source() {
+    if [ -f "$PI_PATCH" ] && git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then
+        git -C frameworks/base apply -R "$PI_PATCH" || true
+    fi
+    git -C vendor/gms checkout -q -- '*.mk' 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
 }
 patch_source() {
     fix_dolby_vision
     fix_gamekey
+    fix_package_installer
 }
 
 # ------------------------------------------------------------------ sync

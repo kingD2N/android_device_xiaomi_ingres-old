@@ -1,0 +1,2323 @@
+diff --git a/packages/PackageInstaller/Android.bp b/packages/PackageInstaller/Android.bp
+index 62ca8881..5d8d745c 100644
+--- a/packages/PackageInstaller/Android.bp
++++ b/packages/PackageInstaller/Android.bp
+@@ -46,6 +46,14 @@ java_defaults {
+     platform_apis: true,
+     rename_resources_package: false,
+     static_libs: [
++        "androidx.activity_activity-compose",
++        "androidx.compose.animation_animation",
++        "androidx.compose.foundation_foundation",
++        "androidx.compose.material3_material3",
++        "androidx.compose.material_material-icons-extended",
++        "androidx.compose.runtime_runtime",
++        "androidx.compose.ui_ui",
++        "ax_blur",
+         "android.content.pm.flags-aconfig-java",
+         "android.multiuser.flags-aconfig-java",
+         "android.os.flags-aconfig-java",
+@@ -62,6 +70,10 @@ java_defaults {
+         error_checks: ["Recycle"],
+     },
+     kotlin_plugins: ["kotlin-parcelize-compiler-plugin"],
++    kotlincflags: [
++        "-Xjvm-default=all",
++        "-P plugin:androidx.compose.compiler.plugins.kotlin:sourceInformation=true",
++    ],
+ 
+     optimize: {
+         optimize: true,
+diff --git a/packages/PackageInstaller/AndroidManifest.xml b/packages/PackageInstaller/AndroidManifest.xml
+index 16dc409f..f1769def 100644
+--- a/packages/PackageInstaller/AndroidManifest.xml
++++ b/packages/PackageInstaller/AndroidManifest.xml
+@@ -46,6 +46,7 @@
+         </receiver>
+ 
+         <activity android:name=".v2.ui.InstallLaunch"
++            android:theme="@style/Theme.PackageInstaller.Expressive"
+             android:excludeFromRecents="true"
+             android:exported="false" />
+ 
+@@ -122,6 +123,7 @@
+         </activity>
+ 
+         <activity android:name=".v2.ui.UninstallLaunch"
++            android:theme="@style/Theme.PackageInstaller.Expressive"
+             android:excludeFromRecents="true"
+             android:noHistory="true"
+             android:exported="false" />
+diff --git a/packages/PackageInstaller/res/values/config.xml b/packages/PackageInstaller/res/values/config.xml
+new file mode 100644
+index 00000000..fb8850bd
+--- /dev/null
++++ b/packages/PackageInstaller/res/values/config.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <bool name="config_useExpressivePackageInstaller">true</bool>
++</resources>
+diff --git a/packages/PackageInstaller/res/values/strings_expressive.xml b/packages/PackageInstaller/res/values/strings_expressive.xml
+new file mode 100644
+index 00000000..a270204b
+--- /dev/null
++++ b/packages/PackageInstaller/res/values/strings_expressive.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="installer_package_id">Package ID</string>
++    <string name="installer_size">Package size</string>
++    <string name="installer_version">Version</string>
++    <!-- Installed version followed by the version being installed. -->
++    <string name="installer_version_change" translatable="false">%1$s → %2$s</string>
++    <!-- Accessibility description of the installed and incoming app versions. -->
++    <string name="installer_version_change_description">Version %1$s to %2$s</string>
++    <string name="installer_target_sdk">Target Android</string>
++    <string name="installer_sdk_value">API %1$d</string>
++    <string name="installer_detail_unavailable">Not available</string>
++    <string name="installer_install_hint">Ready when you are</string>
++    <string name="installer_update_hint">A fresh version is ready</string>
++    <string name="installer_staging_hint">Getting everything ready</string>
++    <string name="installer_installing_hint">Just a moment</string>
++    <string name="installer_success_hint">You’re all set</string>
++    <string name="installer_uninstall_hint">Manage this app</string>
++    <string name="installer_archiving">Archiving…</string>
++</resources>
+diff --git a/packages/PackageInstaller/res/values/themes.xml b/packages/PackageInstaller/res/values/themes.xml
+index 48a1175e..4a412efa 100644
+--- a/packages/PackageInstaller/res/values/themes.xml
++++ b/packages/PackageInstaller/res/values/themes.xml
+@@ -17,6 +17,29 @@
+ 
+ <resources>
+ 
++    <style name="Theme.PackageInstaller.Expressive" parent="@style/Theme.Material3.DayNight.NoActionBar">
++        <item name="android:windowIsTranslucent">true</item>
++        <item name="android:windowBackground">@android:color/transparent</item>
++        <item name="android:colorBackgroundCacheHint">@null</item>
++        <item name="android:backgroundDimEnabled">false</item>
++        <item name="android:windowDisablePreview">true</item>
++        <item name="android:windowNoTitle">true</item>
++    </style>
++
++    <style name="Theme.PackageInstaller.Expressive.Dialog" parent="@style/Theme.Material3.DayNight.Dialog.Alert">
++        <item name="android:windowBackground">@android:color/transparent</item>
++        <item name="android:windowNoTitle">true</item>
++        <item name="android:windowMinWidthMajor">0dp</item>
++        <item name="android:windowMinWidthMinor">0dp</item>
++        <item name="android:backgroundDimAmount">0.24</item>
++        <item name="android:windowAnimationStyle">@style/Animation.PackageInstaller.Expressive.Dialog</item>
++    </style>
++
++    <style name="Animation.PackageInstaller.Expressive.Dialog" parent="@android:style/Animation.Dialog">
++        <item name="android:windowEnterAnimation">@android:anim/fade_in</item>
++        <item name="android:windowExitAnimation">@android:anim/fade_out</item>
++    </style>
++
+     <style name="Theme.AlertDialogActivity"
+         parent="@android:style/Theme.DeviceDefault.Light.Dialog.Alert">
+         <item name="android:windowActionBar">false</item>
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallAppDetails.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallAppDetails.kt
+new file mode 100644
+index 00000000..73b6db72
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallAppDetails.kt
+@@ -0,0 +1,38 @@
++package com.android.packageinstaller.v2.model
++
++import android.content.pm.PackageInfo
++import java.io.File
++
++data class InstallAppDetails(
++    val packageName: String,
++    val sizeBytes: Long? = null,
++    val version: String? = null,
++    val targetSdk: Int? = null,
++    val installedVersion: String? = null,
++) {
++    companion object {
++        fun fromPackageInfo(info: PackageInfo, baseApk: File? = null): InstallAppDetails {
++            val app = info.applicationInfo
++            val paths = buildList<String> {
++                (baseApk?.path ?: app?.sourceDir ?: app?.publicSourceDir)?.let(::add)
++                app?.splitSourceDirs?.let(::addAll)
++            }.distinct()
++            val sizeBytes = try {
++                paths.map { File(it).takeIf(File::isFile)?.length() ?: 0L }
++                    .takeIf { it.isNotEmpty() && it.all { size -> size > 0 } }?.sum()
++            } catch (_: SecurityException) {
++                null
++            }
++            return InstallAppDetails(
++                packageName = info.packageName,
++                sizeBytes = sizeBytes,
++                version = info.displayVersion(),
++                targetSdk = app?.targetSdkVersion?.takeIf { it > 0 },
++            )
++        }
++    }
++}
++
++internal fun PackageInfo.displayVersion(): String? =
++    versionName?.takeIf { it.isNotBlank() }
++        ?: longVersionCode.takeIf { it > 0 }?.toString()
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallRepository.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallRepository.kt
+index 0d911097..a12e0ce1 100644
+--- a/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallRepository.kt
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/model/InstallRepository.kt
+@@ -138,6 +138,8 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
+      * PackageInfo of the app being installed on device.
+      */
+     private var newPackageInfo: PackageInfo? = null
++    var appDetails: InstallAppDetails? = null
++        private set
+     private var installPackageMetadata: PackageMetadata? = null
+     private var wasUserConfirmationTriggeredByPia = false
+ 
+@@ -732,7 +734,14 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
+                 return InstallAborted(ABORT_REASON_INTERNAL_ERROR)
+             }
+         }
++        appDetails = newPackageInfo?.let {
++            InstallAppDetails.fromPackageInfo(
++                it,
++                packageUri.path?.takeIf { scheme == ContentResolver.SCHEME_FILE }?.let(::File),
++            )
++        }
+         isAppUpdating = isAppUpdating(newPackageInfo)
++        appDetails = appDetails?.copy(installedVersion = getInstalledVersion())
+         val (existingUpdateOwner, requestedUpdateOwner) =
+             getUpdateOwners(newPackageInfo, userActionReason, isAppUpdating)
+         val metadata = resolvePackageMetadata(newPackageInfo!!, packageUri)
+@@ -750,8 +759,18 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
+      */
+     private fun processSessionInfo(sessionInfo: SessionInfo, userActionReason: Int): InstallStage {
+         newPackageInfo = generateStubPackageInfo(sessionInfo.getAppPackageName())
++        val displayInfo = sessionInfo.resolvedBaseApkPath?.let {
++            getPackageInfo(context, File(it), 0)
++        }
++        appDetails = displayInfo?.let {
++            InstallAppDetails.fromPackageInfo(it, sessionInfo.resolvedBaseApkPath?.let(::File))
++        }
++            ?: sessionInfo.appPackageName?.let {
++                InstallAppDetails(it, sizeBytes = sessionInfo.size.takeIf { size -> size > 0 })
++            }
+         appSnippet = getAppSnippet(context, sessionInfo)
+         isAppUpdating = isAppUpdating(newPackageInfo)
++        appDetails = appDetails?.copy(installedVersion = getInstalledVersion())
+         val (existingUpdateOwner, requestedUpdateOwner) =
+             getUpdateOwners(newPackageInfo, userActionReason, isAppUpdating)
+         val metadata = resolvePackageMetadata(newPackageInfo!!, intent.data)
+@@ -893,6 +912,19 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
+         }
+     }
+ 
++    private fun getInstalledVersion(): String? {
++        if (!isAppUpdating) return null
++        val packageName = newPackageInfo?.packageName ?: return null
++        // Capture before installation so the result screen keeps the original version.
++        return try {
++            packageManager.getPackageInfo(
++                packageName, PackageManager.MATCH_UNINSTALLED_PACKAGES
++            ).displayVersion()
++        } catch (_: PackageManager.NameNotFoundException) {
++            null
++        }
++    }
++
+     private fun isAppUpdating(newPkgInfo: PackageInfo?): Boolean {
+         if (newPkgInfo == null) {
+             return false
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallLaunch.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallLaunch.kt
+index 006eb674..12951f08 100644
+--- a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallLaunch.kt
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallLaunch.kt
+@@ -32,7 +32,6 @@ import android.view.WindowManager
+ import androidx.activity.result.ActivityResultLauncher
+ import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.fragment.app.DialogFragment
+-import androidx.fragment.app.FragmentActivity
+ import androidx.fragment.app.FragmentManager
+ import androidx.lifecycle.ViewModelProvider
+ import com.android.packageinstaller.R
+@@ -42,14 +41,15 @@ import com.android.packageinstaller.v2.model.InstallRepository
+ import com.android.packageinstaller.v2.model.InstallStage
+ import com.android.packageinstaller.v2.model.InstallSuccess
+ import com.android.packageinstaller.v2.model.InstallUserActionRequired
+-import com.android.packageinstaller.v2.model.PackageUtil
+ import com.android.packageinstaller.v2.model.PackageUtil.localLogv
++import com.android.packageinstaller.v2.ui.compose.ExpressiveInstallRestrictionFragment
++import com.android.packageinstaller.v2.ui.compose.ExpressiveInstallationFragment
+ import com.android.packageinstaller.v2.ui.fragments.InstallRestrictionFragment
+ import com.android.packageinstaller.v2.ui.fragments.InstallationFragment
+ import com.android.packageinstaller.v2.viewmodel.InstallViewModel
+ import com.android.packageinstaller.v2.viewmodel.InstallViewModelFactory
+ 
+-class InstallLaunch : FragmentActivity(), InstallActionListener {
++class InstallLaunch : InstallerActivity(), InstallActionListener {
+ 
+     companion object {
+         @JvmField val EXTRA_CALLING_PKG_UID =
+@@ -79,13 +79,6 @@ class InstallLaunch : FragmentActivity(), InstallActionListener {
+         window.addSystemFlags(WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS)
+         requestWindowFeature(Window.FEATURE_NO_TITLE)
+ 
+-        // The base theme inherits a deviceDefault theme. Applying a material style on the base
+-        // theme to support the material design.
+-        if (PackageUtil.isMaterialDesignEnabled(this)) {
+-            Log.d(LOG_TAG, "Apply material design")
+-            theme.applyStyle(R.style.Theme_AlertDialogActivity_Material, /* force= */ true)
+-        }
+-
+         fragmentManager = supportFragmentManager
+         appOpsManager = getSystemService(AppOpsManager::class.java)
+         installRepository = InstallRepository(applicationContext)
+@@ -128,7 +121,10 @@ class InstallLaunch : FragmentActivity(), InstallActionListener {
+             InstallStage.STAGE_STAGING -> {
+                 showInstallationDialog()
+                 installViewModel!!.stagingProgress.observe(this) { progress: Int ->
+-                    getInstallationFragment()?.setProgress(progress)
++                    when (val fragment = getInstallationFragment()) {
++                        is ExpressiveInstallationFragment -> fragment.setProgress(progress)
++                        is InstallationFragment -> fragment.setProgress(progress)
++                    }
+                 }
+             }
+ 
+@@ -235,23 +231,33 @@ class InstallLaunch : FragmentActivity(), InstallActionListener {
+         if (localLogv) {
+             Log.i(LOG_TAG, "createDialog($restriction)")
+         }
+-        return when (restriction) {
++        val messageId = when (restriction) {
+             UserManager.DISALLOW_INSTALL_APPS ->
+-                InstallRestrictionFragment.newInstance(
+-                    R.string.message_no_install_apps_restriction)
++                R.string.message_no_install_apps_restriction
+ 
+             UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
+             UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY ->
+-                InstallRestrictionFragment.newInstance(
+-                    R.string.message_no_install_unknown_apps_restriction)
++                R.string.message_no_install_unknown_apps_restriction
+ 
+-            else -> null
++            else -> return null
++        }
++        return if (installerStyle == InstallerStyle.AOSP) {
++            InstallRestrictionFragment.newInstance(messageId)
++        } else {
++            ExpressiveInstallRestrictionFragment.newInstance(messageId)
+         }
+     }
+ 
+     private fun showInstallationDialog() {
+-        val fragment = getInstallationFragment() ?: InstallationFragment()
+-        fragment.updateUI()
++        val fragment = getInstallationFragment() ?: if (installerStyle == InstallerStyle.AOSP) {
++            InstallationFragment()
++        } else {
++            ExpressiveInstallationFragment()
++        }
++        when (fragment) {
++            is ExpressiveInstallationFragment -> fragment.updateUI()
++            is InstallationFragment -> fragment.updateUI()
++        }
+         showDialogInner(fragment, TAG_INSTALLATION_DIALOG)
+     }
+ 
+@@ -280,12 +286,11 @@ class InstallLaunch : FragmentActivity(), InstallActionListener {
+         if (currentDialog is DialogFragment) {
+             currentDialog.dismissAllowingStateLoss()
+         }
+-        newDialog?.show(fragmentManager!!, tag)
++        showInstallerDialog(newDialog, tag)
+     }
+ 
+-    private fun getInstallationFragment(): InstallationFragment? {
+-        return (fragmentManager!!.findFragmentByTag(TAG_INSTALLATION_DIALOG)
+-            ?: return null) as InstallationFragment?
++    private fun getInstallationFragment(): DialogFragment? {
++        return fragmentManager!!.findFragmentByTag(TAG_INSTALLATION_DIALOG) as? DialogFragment
+     }
+ 
+     fun setResult(resultCode: Int, data: Intent?, shouldFinish: Boolean) {
+@@ -374,16 +379,18 @@ class InstallLaunch : FragmentActivity(), InstallActionListener {
+         if (localLogv) {
+             Log.d(LOG_TAG, "Opening $intent")
+         }
+-        setResult(RESULT_OK, intent, true)
+-        if (intent != null && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+-            startActivity(intent)
++        setResult(RESULT_OK, intent, false)
++        finishAfterInstallerDismissal {
++            if (intent != null && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
++                startActivity(intent)
++            }
+         }
+     }
+ 
+     override fun sendManageAppsIntent() {
+         val intent = Intent("android.intent.action.MANAGE_PACKAGE_STORAGE")
+-        startActivity(intent)
+-        setResult(RESULT_FIRST_USER, null, true)
++        setResult(RESULT_FIRST_USER, null, false)
++        finishAfterInstallerDismissal { startActivity(intent) }
+     }
+ 
+     private fun registerAppOpChangeListener(listener: UnknownSourcesListener, packageName: String) {
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallerActivity.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallerActivity.kt
+new file mode 100644
+index 00000000..272e9b75
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallerActivity.kt
+@@ -0,0 +1,75 @@
++package com.android.packageinstaller.v2.ui
++
++import android.os.Bundle
++import androidx.fragment.app.DialogFragment
++import androidx.fragment.app.FragmentActivity
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.PackageUtil
++import com.android.packageinstaller.v2.ui.compose.InstallerDialogFragment
++
++abstract class InstallerActivity : FragmentActivity() {
++    protected lateinit var installerStyle: InstallerStyle
++        private set
++
++    private var finishRequested = false
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        val savedStyle = savedInstanceState?.getInt(STATE_STYLE, -1)
++        installerStyle = InstallerStyle.entries.firstOrNull { it.value == savedStyle }
++            ?: InstallerStyle.get(this)
++        if (installerStyle == InstallerStyle.AOSP) {
++            setTheme(R.style.Theme_AlertDialogActivity)
++            if (PackageUtil.isMaterialDesignEnabled(this)) {
++                theme.applyStyle(R.style.Theme_AlertDialogActivity_Material, true)
++            }
++        }
++        super.onCreate(savedInstanceState)
++        if (installerStyle == InstallerStyle.COMPOSE_BOTTOM_SHEET) {
++            // Compose owns the sheet and scrim animation; moving the translucent activity
++            // as well makes the popup appear to jump on entrance and dismissal.
++            overrideActivityTransition(OVERRIDE_TRANSITION_OPEN, 0, 0)
++            overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
++        }
++    }
++
++    protected fun showInstallerDialog(fragment: DialogFragment?, tag: String) {
++        if (fragment is InstallerDialogFragment &&
++            installerStyle == InstallerStyle.COMPOSE_BOTTOM_SHEET) {
++            fragment.showsDialog = false
++            supportFragmentManager.beginTransaction()
++                .add(android.R.id.content, fragment, tag)
++                .commit()
++        } else {
++            fragment?.show(supportFragmentManager, tag)
++        }
++    }
++
++    override fun finish() {
++        finishAfterInstallerDismissal()
++    }
++
++    protected fun finishAfterInstallerDismissal(onFinished: () -> Unit = {}) {
++        if (finishRequested) return
++        finishRequested = true
++        val finish = {
++            super.finish()
++            onFinished()
++        }
++        val sheet = supportFragmentManager.fragments.filterIsInstance<InstallerDialogFragment>()
++            .firstOrNull { it.isBottomSheet }
++        if (sheet != null) {
++            sheet.dismissWithAnimation(finish)
++        } else {
++            finish()
++        }
++    }
++
++    override fun onSaveInstanceState(outState: Bundle) {
++        outState.putInt(STATE_STYLE, installerStyle.value)
++        super.onSaveInstanceState(outState)
++    }
++
++    private companion object {
++        const val STATE_STYLE = "installer_ui_style"
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallerStyle.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallerStyle.kt
+new file mode 100644
+index 00000000..5b15a4c5
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/InstallerStyle.kt
+@@ -0,0 +1,30 @@
++package com.android.packageinstaller.v2.ui
++
++import android.content.Context
++import android.provider.Settings
++import com.android.packageinstaller.R
++
++enum class InstallerStyle(val value: Int) {
++    AOSP(0),
++    COMPOSE_DIALOG(1),
++    COMPOSE_BOTTOM_SHEET(2);
++
++    companion object {
++        private const val SETTING_NAME = "package_installer_style"
++
++        @JvmStatic
++        fun get(context: Context): InstallerStyle {
++            val default = if (context.resources.getBoolean(R.bool.config_useExpressivePackageInstaller)) {
++                COMPOSE_DIALOG
++            } else {
++                AOSP
++            }
++            val value = Settings.Secure.getInt(
++                context.contentResolver,
++                SETTING_NAME,
++                default.value,
++            )
++            return entries.firstOrNull { it.value == value } ?: default
++        }
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/UninstallLaunch.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/UninstallLaunch.kt
+index ed66d8e0..f4ce2a59 100644
+--- a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/UninstallLaunch.kt
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/UninstallLaunch.kt
+@@ -25,23 +25,21 @@ import android.view.WindowManager
+ import android.widget.Toast
+ 
+ import androidx.fragment.app.DialogFragment
+-import androidx.fragment.app.FragmentActivity
+ import androidx.fragment.app.FragmentManager
+ import androidx.lifecycle.ViewModelProvider
+ 
+-import com.android.packageinstaller.R
+-import com.android.packageinstaller.v2.model.PackageUtil
+ import com.android.packageinstaller.v2.model.PackageUtil.localLogv
+ import com.android.packageinstaller.v2.model.UninstallAborted
+ import com.android.packageinstaller.v2.model.UninstallFailed
+ import com.android.packageinstaller.v2.model.UninstallRepository
+ import com.android.packageinstaller.v2.model.UninstallStage
+ import com.android.packageinstaller.v2.model.UninstallSuccess
++import com.android.packageinstaller.v2.ui.compose.ExpressiveUninstallationFragment
+ import com.android.packageinstaller.v2.ui.fragments.UninstallationFragment
+ import com.android.packageinstaller.v2.viewmodel.UninstallViewModel
+ import com.android.packageinstaller.v2.viewmodel.UninstallViewModelFactory
+ 
+-class UninstallLaunch : FragmentActivity(), UninstallActionListener {
++class UninstallLaunch : InstallerActivity(), UninstallActionListener {
+ 
+     companion object {
+         @JvmField val EXTRA_CALLING_PKG_UID =
+@@ -59,18 +57,10 @@ class UninstallLaunch : FragmentActivity(), UninstallActionListener {
+     private var fragmentManager: FragmentManager? = null
+     private var notificationManager: NotificationManager? = null
+     override fun onCreate(savedInstanceState: Bundle?) {
+-        window.addSystemFlags(WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS)
+-
+         // Never restore any state, esp. never create any fragments. The data in the fragment might
+         // be stale, if e.g. the app was uninstalled while the activity was destroyed.
+         super.onCreate(null)
+-
+-        // The base theme inherits a deviceDefault theme. Applying a material style on the base
+-        // theme to support the material design.
+-        if (PackageUtil.isMaterialDesignEnabled(this)) {
+-            Log.d(LOG_TAG, "Apply material design")
+-            theme.applyStyle(R.style.Theme_AlertDialogActivity_Material, /* force= */ true)
+-        }
++        window.addSystemFlags(WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS)
+ 
+         fragmentManager = supportFragmentManager
+         notificationManager = getSystemService(NotificationManager::class.java)
+@@ -151,8 +141,15 @@ class UninstallLaunch : FragmentActivity(), UninstallActionListener {
+     }
+ 
+     private fun showUninstallationDialog() {
+-        val fragment = getUninstallationFragment() ?: UninstallationFragment()
+-        fragment.updateUI()
++        val fragment = getUninstallationFragment() ?: if (installerStyle == InstallerStyle.AOSP) {
++            UninstallationFragment()
++        } else {
++            ExpressiveUninstallationFragment()
++        }
++        when (fragment) {
++            is ExpressiveUninstallationFragment -> fragment.updateUI()
++            is UninstallationFragment -> fragment.updateUI()
++        }
+         showDialogInner(fragment, TAG_UNINSTALLATION_DIALOG)
+     }
+ 
+@@ -180,12 +177,11 @@ class UninstallLaunch : FragmentActivity(), UninstallActionListener {
+         if (currentDialog is DialogFragment) {
+             currentDialog.dismissAllowingStateLoss()
+         }
+-        newDialog?.show(fragmentManager!!, tag)
++        showInstallerDialog(newDialog, tag)
+     }
+ 
+-    private fun getUninstallationFragment(): UninstallationFragment? {
+-        return (fragmentManager!!.findFragmentByTag(TAG_UNINSTALLATION_DIALOG)
+-            ?: return null) as UninstallationFragment?
++    private fun getUninstallationFragment(): DialogFragment? {
++        return fragmentManager!!.findFragmentByTag(TAG_UNINSTALLATION_DIALOG) as? DialogFragment
+     }
+ 
+     fun setResult(resultCode: Int, data: Intent?, shouldFinish: Boolean) {
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveInstallRestrictionFragment.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveInstallRestrictionFragment.kt
+new file mode 100644
+index 00000000..ccf6c929
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveInstallRestrictionFragment.kt
+@@ -0,0 +1,42 @@
++package com.android.packageinstaller.v2.ui.compose
++
++import android.os.Bundle
++import android.text.TextUtils
++import androidx.compose.runtime.Composable
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.InstallStage
++import com.android.packageinstaller.v2.ui.InstallActionListener
++
++class ExpressiveInstallRestrictionFragment : InstallerDialogFragment() {
++    private val listener get() = requireActivity() as InstallActionListener
++
++    override fun onUserDismiss() {
++        listener.onNegativeResponse(InstallStage.STAGE_ABORTED)
++    }
++
++    @Composable
++    override fun Content() {
++        val messageId = requireArguments().getInt(ARG_MESSAGE)
++        InstallerDialogContent(
++            InstallerDialogState(
++                key = messageId,
++                title = getString(R.string.title_install_blocked),
++                message = TextUtils.htmlEncode(getString(messageId)),
++                tone = InstallerTone.Error,
++                secondary = InstallerAction(getString(R.string.button_close)) {
++                    listener.onNegativeResponse(InstallStage.STAGE_ABORTED)
++                },
++            ),
++            actionsEnabled = actionsEnabled,
++            isBottomSheet = isBottomSheet,
++        )
++    }
++
++    companion object {
++        private const val ARG_MESSAGE = "message"
++
++        fun newInstance(messageId: Int) = ExpressiveInstallRestrictionFragment().apply {
++            arguments = Bundle().apply { putInt(ARG_MESSAGE, messageId) }
++        }
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveInstallationFragment.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveInstallationFragment.kt
+new file mode 100644
+index 00000000..d2d692c4
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveInstallationFragment.kt
+@@ -0,0 +1,137 @@
++package com.android.packageinstaller.v2.ui.compose
++
++import android.view.HapticFeedbackConstants
++import androidx.compose.animation.AnimatedVisibility
++import androidx.compose.animation.expandIn
++import androidx.compose.animation.fadeIn
++import androidx.compose.animation.fadeOut
++import androidx.compose.animation.shrinkOut
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.saveable.rememberSaveable
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalView
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.unit.dp
++import androidx.lifecycle.ViewModelProvider
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.InstallAppDetails
++import com.android.packageinstaller.v2.model.InstallInstalling
++import com.android.packageinstaller.v2.model.InstallStage
++import com.android.packageinstaller.v2.model.InstallStaging
++import com.android.packageinstaller.v2.model.InstallSuccess
++import com.android.packageinstaller.v2.model.InstallUserActionRequired
++import com.android.packageinstaller.v2.model.InstallUserActionRequired.Companion.USER_ACTION_REASON_VERIFICATION_CONFIRMATION
++import com.android.packageinstaller.v2.model.InstallVerificationFailure
++import com.android.packageinstaller.v2.ui.InstallActionListener
++import com.android.packageinstaller.v2.ui.fragments.InstallationFragment
++import com.android.packageinstaller.v2.viewmodel.InstallViewModel
++
++class ExpressiveInstallationFragment : InstallerDialogFragment() {
++    private var stage by mutableStateOf<InstallStage>(InstallStaging())
++    private var details by mutableStateOf<InstallAppDetails?>(null)
++    private var progress by mutableStateOf<Float?>(null)
++    private val listener get() = requireActivity() as InstallActionListener
++
++    override fun onStart() {
++        updateUI()
++        super.onStart()
++    }
++
++    fun updateUI() {
++        if (!isAdded) return
++        val model = ViewModelProvider(requireActivity())[InstallViewModel::class.java]
++        stage = model.currentInstallStage.value ?: return
++        details = model.repository.appDetails
++        progress = model.stagingProgress.value?.takeIf { it >= 0 }?.let { it / 100f }
++        isCancelable = stage !is InstallInstalling && stage !is InstallVerificationFailure &&
++            (stage as? InstallUserActionRequired)?.actionReason != USER_ACTION_REASON_VERIFICATION_CONFIRMATION
++    }
++
++    fun setProgress(value: Int) {
++        progress = value.takeIf { it >= 0 }?.let { it.coerceAtMost(100) / 100f }
++    }
++
++    override fun onUserDismiss() {
++        if (stage is InstallSuccess) listener.openInstalledApp(null)
++        else listener.onNegativeResponse(stage.stageCode)
++    }
++
++    @Composable
++    override fun Content() {
++        val view = LocalView.current
++        val state = installDialogState(requireContext(), stage, details, progress, listener)
++        var bypassSubmitted by remember(stage, actionsEnabled) { mutableStateOf(false) }
++        InstallerDialogContent(
++            state,
++            actionsEnabled && !bypassSubmitted,
++            isBottomSheet = isBottomSheet,
++        ) { enabled ->
++            val confirmation = stage as? InstallUserActionRequired
++            val info = confirmation?.verificationInfo
++            if (confirmation?.actionReason == USER_ACTION_REASON_VERIFICATION_CONFIRMATION &&
++                info != null && InstallationFragment.isVerificationBypassAllowed(
++                    info.userActionNeededReason, info.verificationPolicy
++                )) {
++                var expanded by rememberSaveable(info.userActionNeededReason, info.verificationPolicy) {
++                    mutableStateOf(false)
++                }
++                if (!expanded) {
++                    TextButton(
++                        onClick = {
++                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
++                            expanded = true
++                        },
++                        enabled = enabled,
++                    ) {
++                        Text(
++                            stringResource(R.string.more_details),
++                            textAlign = if (isBottomSheet) TextAlign.Center else TextAlign.Start,
++                        )
++                    }
++                }
++                AnimatedVisibility(
++                    expanded,
++                    enter = if (isBottomSheet) fadeIn() else fadeIn() + expandIn(),
++                    exit = if (isBottomSheet) fadeOut() else shrinkOut() + fadeOut(),
++                ) {
++                    Column(
++                        verticalArrangement = Arrangement.spacedBy(12.dp),
++                        horizontalAlignment = if (isBottomSheet) Alignment.CenterHorizontally
++                            else Alignment.Start,
++                    ) {
++                        InstallerMessage(
++                            stringResource(
++                                if (confirmation.isAppUpdating) R.string.more_details_expanded_update_summary
++                                else R.string.more_details_expanded_install_summary
++                            ),
++                            modifier = Modifier.fillMaxWidth(),
++                            textAlign = if (isBottomSheet) TextAlign.Center else TextAlign.Start,
++                        )
++                        ExpressiveInstallerButton(
++                            label = stringResource(if (confirmation.isAppUpdating) R.string.update_without_verifying else R.string.install_without_verifying),
++                            primary = false,
++                            enabled = enabled,
++                            modifier = Modifier.fillMaxWidth(),
++                        ) {
++                            if (actionsEnabled && !bypassSubmitted) {
++                                bypassSubmitted = true
++                                listener.onPositiveResponse(USER_ACTION_REASON_VERIFICATION_CONFIRMATION)
++                            }
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveUninstallationFragment.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveUninstallationFragment.kt
+new file mode 100644
+index 00000000..d092fee6
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/ExpressiveUninstallationFragment.kt
+@@ -0,0 +1,206 @@
++package com.android.packageinstaller.v2.ui.compose
++
++import android.content.pm.PackageInfo
++import android.content.pm.PackageManager
++import android.os.UserHandle
++import android.text.TextUtils
++import android.text.format.Formatter
++import android.view.HapticFeedbackConstants
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.selection.selectable
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.RadioButton
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.produceState
++import androidx.compose.runtime.saveable.rememberSaveable
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalView
++import androidx.compose.ui.semantics.Role
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.unit.dp
++import androidx.lifecycle.ViewModelProvider
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.InstallAppDetails
++import com.android.packageinstaller.v2.model.UninstallAborted
++import com.android.packageinstaller.v2.model.UninstallStage
++import com.android.packageinstaller.v2.model.UninstallUserActionRequired
++import com.android.packageinstaller.v2.ui.UninstallActionListener
++import com.android.packageinstaller.v2.viewmodel.UninstallViewModel
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.withContext
++
++class ExpressiveUninstallationFragment : InstallerDialogFragment() {
++    private var stage by mutableStateOf<UninstallStage?>(null)
++    private val listener get() = requireActivity() as UninstallActionListener
++
++    override fun onStart() {
++        updateUI()
++        super.onStart()
++    }
++
++    fun updateUI() {
++        if (!isAdded) return
++        stage = ViewModelProvider(requireActivity())[UninstallViewModel::class.java]
++            .currentUninstallStage.value
++    }
++
++    override fun onUserDismiss() {
++        listener.onNegativeResponse()
++    }
++
++    @Composable
++    override fun Content() {
++        val current = stage ?: return
++        val context = requireContext()
++        val view = LocalView.current
++        val confirmation = current as? UninstallUserActionRequired
++        var keepData by rememberSaveable { mutableStateOf(false) }
++        var uninstalling by rememberSaveable { mutableStateOf(false) }
++        // Reserve the details layout while package metadata loads to avoid expanding on opening.
++        val details by produceState<InstallAppDetails?>(
++            initialValue = confirmation?.targetAppInfo?.let { app ->
++                InstallAppDetails(
++                    packageName = app.packageName,
++                    targetSdk = app.targetSdkVersion.takeIf { it > 0 },
++                )
++            },
++            key1 = confirmation?.targetAppInfo,
++        ) {
++            val app = confirmation?.targetAppInfo ?: return@produceState
++            value = withContext(Dispatchers.IO) {
++                val info = try {
++                    context.packageManager.getPackageInfoAsUser(
++                        app.packageName,
++                        PackageManager.MATCH_UNINSTALLED_PACKAGES,
++                        UserHandle.getUserId(app.uid),
++                    )
++                } catch (_: PackageManager.NameNotFoundException) {
++                    null
++                } catch (_: SecurityException) {
++                    null
++                }
++                InstallAppDetails.fromPackageInfo(info ?: PackageInfo().apply {
++                    packageName = app.packageName
++                    applicationInfo = app
++                })
++            }
++        }
++        val state = when (current) {
++            is UninstallAborted -> InstallerDialogState(
++                key = current,
++                title = getString(current.dialogTitleResource),
++                appLabel = current.appLabel,
++                appIcon = current.appIcon,
++                message = TextUtils.htmlEncode(getString(current.dialogTextResource)),
++                tone = InstallerTone.Error,
++                secondary = InstallerAction(getString(R.string.button_close), listener::onNegativeResponse),
++            )
++            is UninstallUserActionRequired -> InstallerDialogState(
++                key = current,
++                title = if (uninstalling) {
++                    getString(
++                        if (current.positiveButtonResId == R.string.button_archive) {
++                            R.string.installer_archiving
++                        } else R.string.uninstalling
++                    )
++                } else current.getTitle(context),
++                subtitle = getString(
++                    if (uninstalling) R.string.installer_installing_hint
++                    else R.string.installer_uninstall_hint
++                ),
++                appLabel = current.getAppLabel(context),
++                appIcon = current.appIcon,
++                details = details,
++                message = current.getMessage(context)?.let(TextUtils::htmlEncode),
++                busy = uninstalling,
++                primary = if (uninstalling) null else InstallerAction(
++                    getString(current.positiveButtonResId)
++                ) {
++                    uninstalling = true
++                    isCancelable = false
++                    listener.onPositiveResponse(keepData && current.appDataSize > 0)
++                },
++                secondary = if (uninstalling) null else InstallerAction(
++                    getString(R.string.button_cancel), listener::onNegativeResponse
++                ),
++            )
++            else -> return
++        }
++        InstallerDialogContent(state, actionsEnabled, isBottomSheet = isBottomSheet) { enabled ->
++            if (confirmation != null && confirmation.appDataSize > 0 && !uninstalling) {
++                Surface(
++                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
++                    shape = RoundedCornerShape(20.dp),
++                ) {
++                    val optionModifier = Modifier.fillMaxWidth().selectable(
++                        selected = keepData,
++                        enabled = enabled,
++                        role = Role.RadioButton,
++                        onClick = {
++                            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
++                            keepData = !keepData
++                        },
++                    ).padding(16.dp)
++                    val label = getString(R.string.message_uninstall_keep_data)
++                    val size = Formatter.formatFileSize(context, confirmation.appDataSize)
++                    if (isBottomSheet) {
++                        Column(
++                            optionModifier,
++                            horizontalAlignment = Alignment.CenterHorizontally,
++                            verticalArrangement = Arrangement.spacedBy(8.dp),
++                        ) {
++                            RadioButton(selected = keepData, onClick = null, enabled = enabled)
++                            KeepDataDescription(label, size, Modifier.fillMaxWidth(), TextAlign.Center)
++                        }
++                    } else {
++                        Row(
++                            optionModifier,
++                            verticalAlignment = Alignment.CenterVertically,
++                            horizontalArrangement = Arrangement.spacedBy(12.dp),
++                        ) {
++                            RadioButton(selected = keepData, onClick = null, enabled = enabled)
++                            KeepDataDescription(
++                                label, size, Modifier.weight(1f), TextAlign.Start,
++                            )
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun KeepDataDescription(
++    label: String,
++    size: String,
++    modifier: Modifier,
++    textAlign: TextAlign,
++) {
++    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
++        Text(
++            label,
++            modifier = Modifier.fillMaxWidth(),
++            style = MaterialTheme.typography.titleSmall,
++            textAlign = textAlign,
++        )
++        Text(
++            size,
++            modifier = Modifier.fillMaxWidth(),
++            style = MaterialTheme.typography.bodyMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            textAlign = textAlign,
++        )
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallDialogState.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallDialogState.kt
+new file mode 100644
+index 00000000..9d719c90
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallDialogState.kt
+@@ -0,0 +1,216 @@
++package com.android.packageinstaller.v2.ui.compose
++
++import android.content.Context
++import android.content.pm.PackageInstaller
++import android.content.pm.PackageInstaller.DEVELOPER_VERIFICATION_POLICY_BLOCK_FAIL_CLOSED
++import android.content.pm.PackageInstaller.DeveloperVerificationUserConfirmationInfo.DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_NETWORK_UNAVAILABLE
++import android.content.pm.PackageInstaller.DeveloperVerificationUserConfirmationInfo.DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_UNKNOWN
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.InstallAborted
++import com.android.packageinstaller.v2.model.InstallAppDetails
++import com.android.packageinstaller.v2.model.InstallFailed
++import com.android.packageinstaller.v2.model.InstallInstalling
++import com.android.packageinstaller.v2.model.InstallStage
++import com.android.packageinstaller.v2.model.InstallStaging
++import com.android.packageinstaller.v2.model.InstallSuccess
++import com.android.packageinstaller.v2.model.InstallUserActionRequired
++import com.android.packageinstaller.v2.model.InstallUserActionRequired.Companion.USER_ACTION_REASON_ANONYMOUS_SOURCE
++import com.android.packageinstaller.v2.model.InstallUserActionRequired.Companion.USER_ACTION_REASON_INSTALL_CONFIRMATION
++import com.android.packageinstaller.v2.model.InstallUserActionRequired.Companion.USER_ACTION_REASON_UNKNOWN_SOURCE
++import com.android.packageinstaller.v2.model.InstallUserActionRequired.Companion.USER_ACTION_REASON_VERIFICATION_CONFIRMATION
++import com.android.packageinstaller.v2.model.InstallVerificationFailure
++import com.android.packageinstaller.v2.ui.InstallActionListener
++
++internal fun installDialogState(
++    context: Context,
++    stage: InstallStage,
++    details: InstallAppDetails?,
++    progress: Float?,
++    listener: InstallActionListener,
++): InstallerDialogState {
++    fun text(id: Int) = context.getString(id)
++    fun action(id: Int, callback: () -> Unit) = InstallerAction(text(id), callback)
++    val cancel = action(R.string.button_cancel) { listener.onNegativeResponse(stage.stageCode) }
++    val close = action(R.string.button_close) { listener.onNegativeResponse(stage.stageCode) }
++    val base = InstallerDialogState(key = stage, title = text(R.string.title_install))
++    return when (stage) {
++        is InstallStaging -> base.copy(
++            title = text(R.string.title_install_staging),
++            subtitle = text(R.string.installer_staging_hint),
++            busy = true,
++            progress = progress,
++            secondary = cancel,
++        )
++        is InstallInstalling -> base.copy(
++            title = text(if (stage.isAppUpdating) R.string.title_updating else R.string.title_installing),
++            subtitle = text(R.string.installer_installing_hint),
++            appLabel = stage.appLabel,
++            appIcon = stage.appIcon,
++            details = details,
++            busy = true,
++        )
++        is InstallSuccess -> {
++            val launchIntent = stage.resultIntent
++            val canOpen = launchIntent != null &&
++                context.packageManager.queryIntentActivities(launchIntent, 0).isNotEmpty()
++            base.copy(
++                title = text(if (stage.isAppUpdating) R.string.title_updated else R.string.title_installed),
++                subtitle = text(R.string.installer_success_hint),
++                appLabel = stage.appLabel,
++                appIcon = stage.appIcon,
++                details = details,
++                tone = InstallerTone.Success,
++                primary = if (canOpen) action(R.string.button_open) {
++                    listener.openInstalledApp(launchIntent)
++                } else null,
++                secondary = action(R.string.button_done) { listener.openInstalledApp(null) },
++            )
++        }
++        is InstallAborted -> base.copy(
++            title = text(R.string.title_cant_install_app),
++            message = text(R.string.message_parse_failed),
++            tone = InstallerTone.Error,
++            secondary = action(R.string.button_close) {
++                listener.onNegativeResponse(stage.activityResultCode, stage.resultIntent)
++            },
++        )
++        is InstallFailed -> {
++            val title = when (stage.statusCode) {
++                PackageInstaller.STATUS_FAILURE_BLOCKED -> R.string.title_install_failed_blocked
++                PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> R.string.title_install_failed_incompatible
++                PackageInstaller.STATUS_FAILURE_STORAGE -> R.string.title_install_failed_less_storage
++                PackageInstaller.STATUS_FAILURE_CONFLICT,
++                PackageInstaller.STATUS_FAILURE_INVALID -> R.string.title_cant_install_app
++                else -> R.string.title_install_failed_not_installed
++            }
++            val message = when (stage.statusCode) {
++                PackageInstaller.STATUS_FAILURE_BLOCKED -> R.string.message_install_failed_blocked
++                PackageInstaller.STATUS_FAILURE_CONFLICT -> R.string.message_install_failed_conflict
++                PackageInstaller.STATUS_FAILURE_INCOMPATIBLE -> R.string.message_install_failed_incompatible
++                PackageInstaller.STATUS_FAILURE_INVALID -> R.string.message_install_failed_invalid
++                PackageInstaller.STATUS_FAILURE_STORAGE -> R.string.message_install_failed_less_storage
++                else -> null
++            }
++            base.copy(
++                title = text(title),
++                appLabel = stage.appLabel,
++                appIcon = stage.appIcon,
++                details = details,
++                message = message?.let(::text),
++                tone = InstallerTone.Error,
++                primary = if (stage.statusCode == PackageInstaller.STATUS_FAILURE_STORAGE) {
++                    action(R.string.button_manage_apps, listener::sendManageAppsIntent)
++                } else null,
++                secondary = close,
++            )
++        }
++        is InstallUserActionRequired -> when (stage.actionReason) {
++            USER_ACTION_REASON_INSTALL_CONFIRMATION -> {
++                val existingOwner = stage.getExistingUpdateOwnerLabel(context)
++                val requestedOwner = stage.getRequestedUpdateOwnerLabel(context)
++                val changingOwner = stage.isAppUpdating &&
++                    existingOwner != null && requestedOwner != null
++                base.copy(
++                    title = if (changingOwner) {
++                        context.getString(R.string.title_update_ownership_change, requestedOwner)
++                    } else {
++                        text(if (stage.isAppUpdating) R.string.title_update else R.string.title_install)
++                    },
++                    subtitle = text(
++                        if (stage.isAppUpdating) R.string.installer_update_hint
++                        else R.string.installer_install_hint
++                    ),
++                    appLabel = stage.appLabel,
++                    appIcon = stage.appIcon,
++                    details = details,
++                    message = if (changingOwner) context.getString(
++                        R.string.message_update_owner_change,
++                        android.text.TextUtils.htmlEncode(existingOwner),
++                    ) else null,
++                    primary = action(
++                        if (changingOwner) R.string.button_update_anyway
++                        else if (stage.isAppUpdating) R.string.button_update else R.string.button_install
++                    ) { listener.onPositiveResponse(USER_ACTION_REASON_INSTALL_CONFIRMATION) },
++                    secondary = cancel,
++                )
++            }
++            USER_ACTION_REASON_UNKNOWN_SOURCE -> base.copy(
++                title = text(R.string.title_unknown_source_blocked),
++                appLabel = stage.appLabel,
++                appIcon = stage.appIcon,
++                message = text(R.string.message_external_source_blocked),
++                primary = stage.unknownSourcePackageName?.let { source ->
++                    action(R.string.external_sources_settings) { listener.sendUnknownAppsIntent(source) }
++                },
++                secondary = cancel,
++            )
++            USER_ACTION_REASON_ANONYMOUS_SOURCE -> base.copy(
++                title = text(R.string.title_unknown_source_blocked),
++                message = text(R.string.message_anonymous_source_warning),
++                primary = action(R.string.button_continue) {
++                    listener.onPositiveResponse(USER_ACTION_REASON_ANONYMOUS_SOURCE)
++                },
++                secondary = cancel,
++            )
++            USER_ACTION_REASON_VERIFICATION_CONFIRMATION -> {
++                val info = stage.verificationInfo
++                val reason = info?.userActionNeededReason
++                    ?: DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_UNKNOWN
++                val policy = info?.verificationPolicy ?: DEVELOPER_VERIFICATION_POLICY_BLOCK_FAIL_CLOSED
++                val dismiss = action(R.string.ok) {
++                    listener.onNegativeResponse(InstallStage.STAGE_VERIFICATION_CONFIRMATION_REQUIRED)
++                }
++                val retry = policy == DEVELOPER_VERIFICATION_POLICY_BLOCK_FAIL_CLOSED &&
++                    reason == DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_NETWORK_UNAVAILABLE
++                base.copy(
++                    title = text(verificationTitle(reason)),
++                    appLabel = stage.appLabel,
++                    appIcon = stage.appIcon,
++                    details = details,
++                    message = text(verificationMessage(reason, policy, stage.isAppUpdating)),
++                    tone = InstallerTone.Error,
++                    primary = if (retry) dismiss else null,
++                    secondary = if (retry) {
++                        action(R.string.button_retry, listener::onRetryResponse)
++                    } else dismiss,
++                )
++            }
++            else -> base.copy(secondary = cancel)
++        }
++        is InstallVerificationFailure -> base.copy(
++            title = text(verificationTitle(stage.failureReason)),
++            message = text(verificationMessage(
++                stage.failureReason,
++                DEVELOPER_VERIFICATION_POLICY_BLOCK_FAIL_CLOSED,
++                stage.isAppUpdating,
++            )),
++            tone = InstallerTone.Error,
++            secondary = action(R.string.ok) { listener.onNegativeResponse(stage.stageCode) },
++        )
++        else -> base.copy(secondary = close)
++    }
++}
++
++private fun verificationTitle(reason: Int): Int = when (reason) {
++    DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_UNKNOWN -> R.string.cannot_install_verification_unavailable_title
++    DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_NETWORK_UNAVAILABLE -> R.string.cannot_install_verification_no_internet_title
++    else -> R.string.cannot_install_app_blocked_title
++}
++
++private fun verificationMessage(reason: Int, policy: Int, updating: Boolean): Int = when (reason) {
++    DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_UNKNOWN -> {
++        if (policy == DEVELOPER_VERIFICATION_POLICY_BLOCK_FAIL_CLOSED) {
++            if (updating) R.string.cannot_update_verification_unavailable_fail_closed_summary
++            else R.string.cannot_install_verification_unavailable_fail_closed_summary
++        } else {
++            if (updating) R.string.cannot_update_verification_unavailable_summary
++            else R.string.cannot_install_verification_unavailable_summary
++        }
++    }
++    DEVELOPER_VERIFICATION_USER_ACTION_NEEDED_REASON_NETWORK_UNAVAILABLE -> {
++        if (updating) R.string.cannot_update_verification_no_internet_summary
++        else R.string.cannot_install_verification_no_internet_summary
++    }
++    else -> if (updating) R.string.cannot_update_app_blocked_summary
++        else R.string.cannot_install_app_blocked_summary
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerBottomSheet.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerBottomSheet.kt
+new file mode 100644
+index 00000000..c69f0b4c
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerBottomSheet.kt
+@@ -0,0 +1,127 @@
++package com.android.packageinstaller.v2.ui.compose
++
++import android.view.MotionEvent
++import android.view.Window
++import android.view.WindowManager
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.WindowInsets
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.safeDrawing
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.material3.ExperimentalMaterial3Api
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.ModalBottomSheet
++import androidx.compose.material3.ModalBottomSheetProperties
++import androidx.compose.material3.SheetValue
++import androidx.compose.material3.rememberModalBottomSheetState
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.DisposableEffect
++import androidx.compose.runtime.LaunchedEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.rememberCoroutineScope
++import androidx.compose.runtime.rememberUpdatedState
++import androidx.compose.runtime.snapshotFlow
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.platform.LocalView
++import androidx.compose.ui.unit.dp
++import androidx.compose.ui.window.DialogWindowProvider
++import kotlinx.coroutines.flow.first
++import kotlinx.coroutines.launch
++
++@OptIn(ExperimentalMaterial3Api::class)
++@Composable
++fun InstallerBottomSheet(
++    cancelable: Boolean,
++    actionsEnabled: Boolean,
++    dismissRequested: Boolean,
++    onDismissRequest: () -> Unit,
++    onDismissed: () -> Unit,
++    content: @Composable () -> Unit,
++) {
++    val canDismiss = cancelable && actionsEnabled && !dismissRequested
++    val currentCanDismiss by rememberUpdatedState(canDismiss)
++    val currentDismissRequested by rememberUpdatedState(dismissRequested)
++    val currentOnDismissed by rememberUpdatedState(onDismissed)
++    val scope = rememberCoroutineScope()
++    val sheetState = rememberModalBottomSheetState(
++        skipPartiallyExpanded = true,
++        confirmValueChange = { value ->
++            value != SheetValue.Hidden || currentCanDismiss || currentDismissRequested
++        },
++    )
++
++    ModalBottomSheet(
++        onDismissRequest = {
++            if (currentDismissRequested) {
++                // A back animation can be cancelled by our programmatic hide. Only finish
++                // once the sheet has actually settled off screen.
++                if (!sheetState.isVisible && !sheetState.isAnimationRunning) {
++                    currentOnDismissed()
++                }
++            } else if (currentCanDismiss) {
++                onDismissRequest()
++            } else {
++                // A new, non-cancelable install stage may have arrived during a user swipe.
++                scope.launch {
++                    if (!currentDismissRequested) sheetState.show()
++                }
++            }
++        },
++        modifier = Modifier.padding(top = 24.dp),
++        sheetState = sheetState,
++        sheetMaxWidth = 640.dp,
++        sheetGesturesEnabled = canDismiss,
++        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
++        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
++        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f),
++        contentWindowInsets = { WindowInsets.safeDrawing },
++        properties = ModalBottomSheetProperties(
++            shouldDismissOnBackPress = canDismiss,
++        ),
++    ) {
++        SecureInstallerSheetWindow()
++        Box(Modifier.weight(1f, fill = false)) {
++            content()
++        }
++    }
++
++    LaunchedEffect(sheetState, dismissRequested) {
++        if (dismissRequested) {
++            // ModalBottomSheet starts showing after its first measurement. Wait until that
++            // animation has started so a fast result cannot hide and then reopen the sheet.
++            snapshotFlow {
++                sheetState.targetValue != SheetValue.Hidden || sheetState.isVisible
++            }.first { it }
++            sheetState.hide()
++            if (!sheetState.isVisible) currentOnDismissed()
++        }
++    }
++}
++
++@Composable
++private fun SecureInstallerSheetWindow() {
++    val view = LocalView.current
++    DisposableEffect(view) {
++        val window = (view.parent as? DialogWindowProvider)?.window
++        val originalCallback = window?.callback
++        if (window != null && originalCallback != null) {
++            window.addSystemFlags(
++                WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS
++            )
++            val callback = object : Window.Callback by originalCallback {
++                override fun dispatchTouchEvent(event: MotionEvent): Boolean {
++                    val obscured = MotionEvent.FLAG_WINDOW_IS_OBSCURED or
++                        MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED
++                    return event.flags and obscured == 0 &&
++                        originalCallback.dispatchTouchEvent(event)
++                }
++            }
++            window.callback = callback
++            onDispose {
++                if (window.callback === callback) window.callback = originalCallback
++            }
++        } else {
++            onDispose {}
++        }
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerBottomSheetContent.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerBottomSheetContent.kt
+new file mode 100644
+index 00000000..b74a3b01
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerBottomSheetContent.kt
+@@ -0,0 +1,354 @@
++/*
++ * Copyright (C) 2024-2026 Lunaris AOSP
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
++
++package com.android.packageinstaller.v2.ui.compose
++
++import android.text.format.Formatter
++import android.view.HapticFeedbackConstants
++import androidx.compose.animation.Crossfade
++import androidx.compose.animation.animateColorAsState
++import androidx.compose.animation.core.animateFloatAsState
++import androidx.compose.foundation.Image
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.IntrinsicSize
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxHeight
++import androidx.compose.foundation.layout.fillMaxSize
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.text.selection.SelectionContainer
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.rounded.Check
++import androidx.compose.material.icons.rounded.Download
++import androidx.compose.material.icons.rounded.ErrorOutline
++import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
++import androidx.compose.material3.HorizontalDivider
++import androidx.compose.material3.Icon
++import androidx.compose.material3.LinearWavyProgressIndicator
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.Surface
++import androidx.compose.material3.Text
++import androidx.compose.material3.TextButton
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.remember
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.asImageBitmap
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.platform.LocalView
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.semantics.LiveRegionMode
++import androidx.compose.ui.semantics.heading
++import androidx.compose.ui.semantics.liveRegion
++import androidx.compose.ui.semantics.paneTitle
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.unit.dp
++import androidx.core.graphics.drawable.toBitmap
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.InstallAppDetails
++
++@Composable
++internal fun InstallerBottomSheetContent(
++    state: InstallerDialogState,
++    enabled: Boolean,
++    onAction: (InstallerAction) -> Unit,
++    extraContent: @Composable (Boolean) -> Unit,
++) {
++    Column(
++        Modifier.fillMaxWidth().semantics { paneTitle = state.title },
++        horizontalAlignment = Alignment.CenterHorizontally,
++    ) {
++        Column(
++            Modifier.weight(1f, fill = false).fillMaxWidth()
++                .verticalScroll(rememberScrollState())
++                .padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
++            horizontalAlignment = Alignment.CenterHorizontally,
++            verticalArrangement = Arrangement.spacedBy(24.dp),
++        ) {
++            SheetHeader(state)
++            if (state.busy) {
++                SheetProgress(state.progress)
++            }
++            state.details?.let { SheetAppDetails(it) }
++            state.message?.let {
++                InstallerMessage(it, Modifier.fillMaxWidth(), TextAlign.Center)
++            }
++            extraContent(enabled)
++        }
++        if (state.primary != null || state.secondary != null) {
++            SheetActions(state, enabled, onAction)
++        }
++    }
++}
++
++@Composable
++private fun SheetHeader(state: InstallerDialogState) {
++    val colors = MaterialTheme.colorScheme
++    val container by animateColorAsState(
++        when (state.tone) {
++            InstallerTone.Normal -> colors.primaryContainer
++            InstallerTone.Success -> colors.tertiaryContainer
++            InstallerTone.Error -> colors.errorContainer
++        },
++        animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
++        label = "sheet status color",
++    )
++    val iconSize = with(LocalDensity.current) { 64.dp.roundToPx() }
++    val bitmap = remember(state.appIcon, iconSize) {
++        state.appIcon?.toBitmap(iconSize, iconSize)?.asImageBitmap()
++    }
++    Column(
++        Modifier.fillMaxWidth(),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.spacedBy(16.dp),
++    ) {
++        Surface(
++            modifier = Modifier.size(88.dp),
++            shape = RoundedCornerShape(28.dp),
++            color = container,
++        ) {
++            Crossfade(
++                targetState = state.tone,
++                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
++                label = "sheet status icon",
++            ) { tone ->
++                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
++                    if (tone == InstallerTone.Normal && bitmap != null) {
++                        Image(bitmap, contentDescription = null, modifier = Modifier.size(64.dp))
++                    } else {
++                        Icon(
++                            when (tone) {
++                                InstallerTone.Normal -> Icons.Rounded.Download
++                                InstallerTone.Success -> Icons.Rounded.Check
++                                InstallerTone.Error -> Icons.Rounded.ErrorOutline
++                            },
++                            contentDescription = null,
++                            tint = when (tone) {
++                                InstallerTone.Normal -> colors.onPrimaryContainer
++                                InstallerTone.Success -> colors.onTertiaryContainer
++                                InstallerTone.Error -> colors.onErrorContainer
++                            },
++                            modifier = Modifier.size(40.dp),
++                        )
++                    }
++                }
++            }
++        }
++        Column(
++            Modifier.fillMaxWidth(),
++            horizontalAlignment = Alignment.CenterHorizontally,
++            verticalArrangement = Arrangement.spacedBy(8.dp),
++        ) {
++            Text(
++                state.title,
++                modifier = Modifier.fillMaxWidth().semantics {
++                    heading()
++                    liveRegion = LiveRegionMode.Polite
++                },
++                style = MaterialTheme.typography.headlineSmall,
++                color = colors.onSurface,
++                textAlign = TextAlign.Center,
++            )
++            state.appLabel?.let {
++                Text(
++                    it,
++                    modifier = Modifier.fillMaxWidth(),
++                    style = MaterialTheme.typography.titleMedium,
++                    fontWeight = FontWeight.SemiBold,
++                    color = colors.onSurface,
++                    textAlign = TextAlign.Center,
++                )
++            }
++            state.subtitle?.let {
++                Text(
++                    it,
++                    modifier = Modifier.fillMaxWidth(),
++                    style = MaterialTheme.typography.bodyMedium,
++                    color = colors.onSurfaceVariant,
++                    textAlign = TextAlign.Center,
++                )
++            }
++        }
++    }
++}
++
++@Composable
++private fun SheetAppDetails(details: InstallAppDetails) {
++    val unknown = stringResource(R.string.installer_detail_unavailable)
++    val size = details.sizeBytes?.let { Formatter.formatFileSize(LocalContext.current, it) } ?: unknown
++    val target = details.targetSdk?.let { stringResource(R.string.installer_sdk_value, it) } ?: unknown
++    val installedVersion = details.installedVersion
++    val metrics = buildList {
++        add(stringResource(R.string.installer_size) to size)
++        if (installedVersion == null) {
++            add(stringResource(R.string.installer_version) to (details.version ?: unknown))
++        }
++        add(stringResource(R.string.installer_target_sdk) to target)
++    }
++    Column(
++        Modifier.fillMaxWidth(),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.spacedBy(8.dp),
++    ) {
++        Surface(
++            color = MaterialTheme.colorScheme.surfaceContainerHigh,
++            shape = RoundedCornerShape(20.dp),
++        ) {
++            Column(
++                Modifier.fillMaxWidth().padding(16.dp),
++                horizontalAlignment = Alignment.CenterHorizontally,
++                verticalArrangement = Arrangement.spacedBy(16.dp),
++            ) {
++                SelectionContainer {
++                    SheetDetailText(stringResource(R.string.installer_package_id), details.packageName)
++                }
++                if (installedVersion != null) {
++                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
++                    VersionChange(installedVersion, details.version ?: unknown, TextAlign.Center)
++                }
++            }
++        }
++        BoxWithConstraints(Modifier.fillMaxWidth()) {
++            if (maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f) {
++                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                    metrics.forEach { (label, value) ->
++                        SheetDetailTile(label, value, Modifier.fillMaxWidth())
++                    }
++                }
++            } else {
++                Row(
++                    Modifier.fillMaxWidth().height(IntrinsicSize.Min),
++                    horizontalArrangement = Arrangement.spacedBy(8.dp),
++                ) {
++                    metrics.forEach { (label, value) ->
++                        SheetDetailTile(label, value, Modifier.weight(1f).fillMaxHeight())
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++private fun SheetDetailTile(label: String, value: String, modifier: Modifier) {
++    Surface(
++        modifier = modifier,
++        color = MaterialTheme.colorScheme.surfaceContainerHigh,
++        shape = RoundedCornerShape(20.dp),
++    ) {
++        Box(Modifier.padding(horizontal = 12.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
++            SheetDetailText(label, value)
++        }
++    }
++}
++
++@Composable
++private fun SheetDetailText(label: String, value: String) {
++    Column(
++        Modifier.fillMaxWidth(),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.spacedBy(4.dp),
++    ) {
++        Text(
++            label,
++            style = MaterialTheme.typography.labelMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            textAlign = TextAlign.Center,
++        )
++        Text(
++            value,
++            style = MaterialTheme.typography.bodyMedium,
++            fontWeight = FontWeight.SemiBold,
++            color = MaterialTheme.colorScheme.onSurface,
++            textAlign = TextAlign.Center,
++        )
++    }
++}
++
++@Composable
++private fun SheetProgress(progress: Float?) {
++    Box(Modifier.fillMaxWidth().height(24.dp), contentAlignment = Alignment.Center) {
++        if (progress == null) {
++            LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
++        } else {
++            val animatedProgress by animateFloatAsState(
++                targetValue = progress.coerceIn(0f, 1f),
++                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
++                label = "sheet install progress",
++            )
++            LinearWavyProgressIndicator(
++                progress = { animatedProgress.coerceIn(0f, 1f) },
++                modifier = Modifier.fillMaxWidth(),
++            )
++        }
++    }
++}
++
++@Composable
++private fun SheetActions(
++    state: InstallerDialogState,
++    enabled: Boolean,
++    onAction: (InstallerAction) -> Unit,
++) {
++    val view = LocalView.current
++    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
++    Column(
++        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
++        horizontalAlignment = Alignment.CenterHorizontally,
++        verticalArrangement = Arrangement.spacedBy(8.dp),
++    ) {
++        state.primary?.let { action ->
++            ExpressiveInstallerButton(action.label, true, enabled, Modifier.fillMaxWidth()) {
++                onAction(action)
++            }
++        }
++        state.secondary?.let { action ->
++            if (state.primary == null) {
++                ExpressiveInstallerButton(action.label, false, enabled, Modifier.fillMaxWidth()) {
++                    onAction(action)
++                }
++            } else {
++                TextButton(
++                    onClick = {
++                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
++                        onAction(action)
++                    },
++                    enabled = enabled,
++                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
++                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
++                ) {
++                    Text(action.label, textAlign = TextAlign.Center)
++                }
++            }
++        }
++    }
++}
+diff --git a/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerDialog.kt b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerDialog.kt
+new file mode 100644
+index 00000000..34185b7f
+--- /dev/null
++++ b/packages/PackageInstaller/src/com/android/packageinstaller/v2/ui/compose/InstallerDialog.kt
+@@ -0,0 +1,629 @@
++@file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
++
++package com.android.packageinstaller.v2.ui.compose
++
++import android.app.Dialog
++import android.content.DialogInterface
++import android.graphics.drawable.Drawable
++import android.os.Bundle
++import android.text.BidiFormatter
++import android.text.Html
++import android.text.TextDirectionHeuristics
++import android.text.format.Formatter
++import android.text.style.StyleSpan
++import android.text.style.URLSpan
++import android.view.HapticFeedbackConstants
++import android.view.LayoutInflater
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewGroup
++import android.view.WindowManager
++import android.widget.FrameLayout
++import androidx.compose.animation.AnimatedContent
++import androidx.compose.animation.core.Spring
++import androidx.compose.animation.core.animateFloatAsState
++import androidx.compose.animation.core.spring
++import androidx.compose.animation.fadeIn
++import androidx.compose.animation.fadeOut
++import androidx.compose.animation.scaleIn
++import androidx.compose.animation.togetherWith
++import com.android.axion.blur.AxBlurLifecycle
++import com.android.axion.blur.AxBlurSurface
++import androidx.compose.foundation.Image
++import androidx.compose.foundation.background
++import androidx.compose.foundation.interaction.MutableInteractionSource
++import androidx.compose.foundation.interaction.collectIsPressedAsState
++import androidx.compose.foundation.isSystemInDarkTheme
++import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.PaddingValues
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.heightIn
++import androidx.compose.foundation.layout.padding
++import androidx.compose.foundation.layout.size
++import androidx.compose.foundation.rememberScrollState
++import androidx.compose.foundation.shape.RoundedCornerShape
++import androidx.compose.foundation.text.selection.SelectionContainer
++import androidx.compose.foundation.verticalScroll
++import androidx.compose.material.icons.Icons
++import androidx.compose.material.icons.rounded.Check
++import androidx.compose.material.icons.rounded.Download
++import androidx.compose.material.icons.rounded.ErrorOutline
++import androidx.compose.material.icons.rounded.Inventory2
++import androidx.compose.material3.Button
++import androidx.compose.material3.ButtonDefaults
++import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
++import androidx.compose.material3.Icon
++import androidx.compose.material3.LinearWavyProgressIndicator
++import androidx.compose.material3.MaterialExpressiveTheme
++import androidx.compose.material3.MaterialTheme
++import androidx.compose.material3.MotionScheme
++import androidx.compose.material3.Text
++import androidx.compose.material3.dynamicDarkColorScheme
++import androidx.compose.material3.dynamicLightColorScheme
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.asImageBitmap
++import androidx.compose.ui.graphics.graphicsLayer
++import androidx.compose.ui.platform.ComposeView
++import androidx.compose.ui.platform.LocalConfiguration
++import androidx.compose.ui.platform.LocalContext
++import androidx.compose.ui.platform.LocalDensity
++import androidx.compose.ui.platform.LocalView
++import androidx.compose.ui.platform.ViewCompositionStrategy
++import androidx.compose.ui.res.stringResource
++import androidx.compose.ui.semantics.LiveRegionMode
++import androidx.compose.ui.semantics.clearAndSetSemantics
++import androidx.compose.ui.semantics.contentDescription
++import androidx.compose.ui.semantics.heading
++import androidx.compose.ui.semantics.liveRegion
++import androidx.compose.ui.semantics.paneTitle
++import androidx.compose.ui.semantics.semantics
++import androidx.compose.ui.text.LinkAnnotation
++import androidx.compose.ui.text.SpanStyle
++import androidx.compose.ui.text.TextLinkStyles
++import androidx.compose.ui.text.buildAnnotatedString
++import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.style.TextAlign
++import androidx.compose.ui.text.style.TextDecoration
++import androidx.compose.ui.unit.dp
++import androidx.core.graphics.drawable.toBitmap
++import androidx.fragment.app.DialogFragment
++import com.android.packageinstaller.R
++import com.android.packageinstaller.v2.model.InstallAppDetails
++import kotlin.math.roundToInt
++
++abstract class InstallerDialogFragment : DialogFragment() {
++    protected var actionsEnabled by mutableStateOf(false)
++    private var sheetCancelable by mutableStateOf(true)
++    private var sheetVisible by mutableStateOf(true)
++    private var sheetDismissRequested by mutableStateOf(false)
++    private var onSheetDismissed: (() -> Unit)? = null
++
++    val isBottomSheet: Boolean
++        get() = !showsDialog
++
++    override fun setCancelable(cancelable: Boolean) {
++        super.setCancelable(cancelable)
++        sheetCancelable = cancelable
++    }
++
++    override fun onCancel(dialog: DialogInterface) {
++        super.onCancel(dialog)
++        onUserDismiss()
++    }
++
++    fun dismissWithAnimation(onDismissed: () -> Unit) {
++        if (!isBottomSheet || !isResumed || !sheetVisible || view == null) {
++            onDismissed()
++            return
++        }
++        val previous = onSheetDismissed
++        onSheetDismissed = {
++            previous?.invoke()
++            onDismissed()
++        }
++        actionsEnabled = false
++        sheetDismissRequested = true
++    }
++
++    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog =
++        Dialog(requireContext(), R.style.Theme_PackageInstaller_Expressive_Dialog).apply {
++            setCanceledOnTouchOutside(false)
++            window?.addSystemFlags(
++                WindowManager.LayoutParams.SYSTEM_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS
++            )
++        }
++
++    override fun onCreateView(
++        inflater: LayoutInflater,
++        container: ViewGroup?,
++        savedInstanceState: Bundle?,
++    ): View {
++        val context = requireContext()
++        return object : FrameLayout(context) {
++            override fun onFilterTouchEventForSecurity(event: MotionEvent): Boolean {
++                val obscured = MotionEvent.FLAG_WINDOW_IS_OBSCURED or
++                    MotionEvent.FLAG_WINDOW_IS_PARTIALLY_OBSCURED
++                return event.flags and obscured == 0 && super.onFilterTouchEventForSecurity(event)
++            }
++        }.apply {
++            filterTouchesWhenObscured = true
++            addView(ComposeView(context).apply {
++                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
++                setContent {
++                    val dark = isSystemInDarkTheme()
++                    MaterialExpressiveTheme(
++                        colorScheme = if (dark) dynamicDarkColorScheme(context)
++                            else dynamicLightColorScheme(context),
++                        motionScheme = if (isBottomSheet) MotionScheme.standard()
++                            else MotionScheme.expressive(),
++                    ) {
++                        if (isBottomSheet) {
++                            if (sheetVisible) {
++                                InstallerBottomSheet(
++                                    cancelable = sheetCancelable,
++                                    actionsEnabled = actionsEnabled,
++                                    dismissRequested = sheetDismissRequested,
++                                    onDismissRequest = {
++                                        sheetVisible = false
++                                        actionsEnabled = false
++                                        onUserDismiss()
++                                    },
++                                    onDismissed = ::completeSheetDismissal,
++                                ) {
++                                    this@InstallerDialogFragment.Content()
++                                }
++                            }
++                        } else {
++                            AxBlurLifecycle(enabled = actionsEnabled) {
++                                this@InstallerDialogFragment.Content()
++                            }
++                        }
++                    }
++                }
++            })
++        }
++    }
++
++    override fun onStart() {
++        super.onStart()
++        dialog?.window?.let { window ->
++            val metrics = resources.displayMetrics
++            val width = minOf(440f * metrics.density, metrics.widthPixels - 32f * metrics.density)
++            window.setLayout(width.roundToInt(), ViewGroup.LayoutParams.WRAP_CONTENT)
++            window.setDimAmount(0.24f)
++        }
++    }
++
++    override fun onResume() {
++        super.onResume()
++        actionsEnabled = !sheetDismissRequested
++    }
++
++    override fun onPause() {
++        actionsEnabled = false
++        super.onPause()
++    }
++
++    override fun onStop() {
++        super.onStop()
++        if (sheetDismissRequested) completeSheetDismissal()
++    }
++
++    private fun completeSheetDismissal() {
++        sheetVisible = false
++        val callback = onSheetDismissed
++        onSheetDismissed = null
++        callback?.invoke()
++    }
++
++    @Composable
++    protected abstract fun Content()
++
++    protected abstract fun onUserDismiss()
++}
++
++data class InstallerAction(val label: String, val onClick: () -> Unit)
++
++enum class InstallerTone { Normal, Success, Error }
++
++data class InstallerDialogState(
++    val key: Any,
++    val title: String,
++    val subtitle: String? = null,
++    val appLabel: String? = null,
++    val appIcon: Drawable? = null,
++    val details: InstallAppDetails? = null,
++    val message: String? = null,
++    val busy: Boolean = false,
++    val progress: Float? = null,
++    val tone: InstallerTone = InstallerTone.Normal,
++    val primary: InstallerAction? = null,
++    val secondary: InstallerAction? = null,
++)
++
++@Composable
++fun InstallerDialogContent(
++    state: InstallerDialogState,
++    actionsEnabled: Boolean,
++    isBottomSheet: Boolean = false,
++    extraContent: @Composable (Boolean) -> Unit = {},
++) {
++    var submitted by remember(state.key, actionsEnabled) { mutableStateOf(false) }
++    val enabled = actionsEnabled && !submitted
++    val onAction: (InstallerAction) -> Unit = { action ->
++        if (actionsEnabled && !submitted) {
++            submitted = true
++            action.onClick()
++        }
++    }
++    if (isBottomSheet) {
++        InstallerBottomSheetContent(state, enabled, onAction, extraContent)
++        return
++    }
++    val colors = MaterialTheme.colorScheme
++    val maxHeight = (LocalConfiguration.current.screenHeightDp - 48).coerceAtLeast(160).dp
++    AxBlurSurface(
++        modifier = Modifier.fillMaxWidth().heightIn(max = maxHeight)
++            .semantics { paneTitle = state.title },
++        shape = RoundedCornerShape(32.dp),
++        cornerRadius = 32.dp,
++        surfaceColor = colors.surfaceContainerHigh,
++    ) {
++        Column(
++            Modifier.fillMaxWidth().padding(24.dp),
++            verticalArrangement = Arrangement.spacedBy(20.dp),
++        ) {
++            Column(
++                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
++                verticalArrangement = Arrangement.spacedBy(20.dp),
++            ) {
++                AnimatedContent(
++                    targetState = state.tone,
++                    transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.86f)) togetherWith fadeOut() },
++                    label = "installer status",
++                ) { tone ->
++                    val tint = when (tone) {
++                        InstallerTone.Error -> colors.errorContainer
++                        InstallerTone.Success -> colors.tertiaryContainer
++                        InstallerTone.Normal -> colors.primaryContainer
++                    }
++                    val foreground = when (tone) {
++                        InstallerTone.Error -> colors.onErrorContainer
++                        InstallerTone.Success -> colors.onTertiaryContainer
++                        InstallerTone.Normal -> colors.onPrimaryContainer
++                    }
++                    Box(
++                        Modifier.size(56.dp).background(tint, RoundedCornerShape(20.dp)),
++                        contentAlignment = Alignment.Center,
++                    ) {
++                        Icon(
++                            when (tone) {
++                                InstallerTone.Success -> Icons.Rounded.Check
++                                InstallerTone.Error -> Icons.Rounded.ErrorOutline
++                                InstallerTone.Normal -> Icons.Rounded.Download
++                            },
++                            contentDescription = null,
++                            tint = foreground,
++                            modifier = Modifier.size(28.dp),
++                        )
++                    }
++                }
++                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
++                    Text(
++                        state.title,
++                        style = MaterialTheme.typography.headlineSmall,
++                        color = colors.onSurface,
++                        modifier = Modifier.semantics {
++                            heading()
++                            liveRegion = LiveRegionMode.Polite
++                        },
++                    )
++                    state.subtitle?.let {
++                        Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
++                    }
++                }
++                if (state.appLabel != null || state.details != null) {
++                    AppDetailsCard(state.appLabel, state.appIcon, state.details)
++                }
++                state.message?.let { InstallerMessage(it) }
++                if (state.busy) {
++                    val progress = state.progress
++                    if (progress == null) {
++                        LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
++                    } else {
++                        val animatedProgress by animateFloatAsState(
++                            targetValue = progress.coerceIn(0f, 1f),
++                            animationSpec = spring(stiffness = Spring.StiffnessLow),
++                            label = "staging progress",
++                        )
++                        LinearWavyProgressIndicator(
++                            progress = { animatedProgress.coerceIn(0f, 1f) },
++                            modifier = Modifier.fillMaxWidth(),
++                        )
++                    }
++                }
++                extraContent(enabled)
++            }
++            if (state.primary != null || state.secondary != null) {
++                InstallerActions(state, enabled, onAction)
++            }
++        }
++    }
++}
++
++@Composable
++private fun AppDetailsCard(label: String?, icon: Drawable?, details: InstallAppDetails?) {
++    val colors = MaterialTheme.colorScheme
++    Column(
++        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
++            .background(colors.surfaceContainerHighest.copy(alpha = 0.75f)).padding(16.dp),
++        verticalArrangement = Arrangement.spacedBy(16.dp),
++    ) {
++        Row(
++            verticalAlignment = Alignment.CenterVertically,
++            horizontalArrangement = Arrangement.spacedBy(14.dp),
++        ) {
++            val iconSize = with(LocalDensity.current) { 48.dp.roundToPx() }
++            val bitmap = remember(icon, iconSize) { icon?.toBitmap(iconSize, iconSize)?.asImageBitmap() }
++            if (bitmap != null) {
++                Image(bitmap, contentDescription = null, modifier = Modifier.size(48.dp))
++            } else {
++                Icon(
++                    Icons.Rounded.Inventory2,
++                    contentDescription = null,
++                    modifier = Modifier.size(48.dp),
++                    tint = colors.primary,
++                )
++            }
++            Text(
++                label ?: details?.packageName.orEmpty(),
++                style = MaterialTheme.typography.titleLarge,
++                color = colors.onSurface,
++                modifier = Modifier.weight(1f),
++            )
++        }
++        details?.let { app ->
++            val unknown = stringResource(R.string.installer_detail_unavailable)
++            val context = LocalContext.current
++            val size = app.sizeBytes?.let { Formatter.formatFileSize(context, it) } ?: unknown
++            val target = app.targetSdk?.let {
++                stringResource(R.string.installer_sdk_value, it)
++            } ?: unknown
++            SelectionContainer {
++                DetailValue(stringResource(R.string.installer_package_id), app.packageName)
++            }
++            val installedVersion = app.installedVersion
++            if (installedVersion != null) {
++                VersionChange(installedVersion, app.version ?: unknown)
++            }
++            BoxWithConstraints {
++                when {
++                    LocalDensity.current.fontScale > 1.3f -> {
++                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
++                            DetailValue(stringResource(R.string.installer_size), size)
++                            if (installedVersion == null) {
++                                DetailValue(stringResource(R.string.installer_version), app.version ?: unknown)
++                            }
++                            DetailValue(stringResource(R.string.installer_target_sdk), target)
++                        }
++                    }
++                    maxWidth < 300.dp && installedVersion == null -> {
++                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
++                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++                                DetailValue(
++                                    stringResource(R.string.installer_size),
++                                    size,
++                                    Modifier.weight(1f),
++                                )
++                                DetailValue(
++                                    stringResource(R.string.installer_version),
++                                    app.version ?: unknown,
++                                    Modifier.weight(1f),
++                                )
++                            }
++                            DetailValue(stringResource(R.string.installer_target_sdk), target)
++                        }
++                    }
++                    else -> {
++                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++                            DetailValue(
++                                stringResource(R.string.installer_size), size, Modifier.weight(1f)
++                            )
++                            if (installedVersion == null) {
++                                DetailValue(
++                                    stringResource(R.string.installer_version),
++                                    app.version ?: unknown,
++                                    Modifier.weight(1f),
++                                )
++                            }
++                            DetailValue(
++                                stringResource(R.string.installer_target_sdk),
++                                target,
++                                Modifier.weight(1f),
++                            )
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++internal fun VersionChange(
++    installedVersion: String,
++    newVersion: String,
++    textAlign: TextAlign = TextAlign.Start,
++) {
++    val versionChange = stringResource(
++        R.string.installer_version_change, installedVersion, newVersion,
++    )
++    val description = stringResource(
++        R.string.installer_version_change_description, installedVersion, newVersion,
++    )
++    DetailValue(
++        label = stringResource(R.string.installer_version),
++        value = BidiFormatter.getInstance().unicodeWrap(versionChange, TextDirectionHeuristics.LTR),
++        modifier = Modifier.fillMaxWidth().clearAndSetSemantics {
++            contentDescription = description
++        },
++        textAlign = textAlign,
++    )
++}
++
++@Composable
++private fun DetailValue(
++    label: String,
++    value: String,
++    modifier: Modifier = Modifier,
++    textAlign: TextAlign = TextAlign.Start,
++) {
++    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
++        Text(
++            label,
++            style = MaterialTheme.typography.labelMedium,
++            color = MaterialTheme.colorScheme.onSurfaceVariant,
++            textAlign = textAlign,
++            modifier = Modifier.fillMaxWidth(),
++        )
++        Text(
++            value,
++            style = MaterialTheme.typography.bodyMedium,
++            fontWeight = FontWeight.Medium,
++            color = MaterialTheme.colorScheme.onSurface,
++            textAlign = textAlign,
++            modifier = Modifier.fillMaxWidth(),
++        )
++    }
++}
++
++@Composable
++fun InstallerMessage(
++    message: String,
++    modifier: Modifier = Modifier,
++    textAlign: TextAlign = TextAlign.Start,
++) {
++    val linkColor = MaterialTheme.colorScheme.primary
++    val text = remember(message, linkColor) {
++        val spanned = Html.fromHtml(message, Html.FROM_HTML_MODE_LEGACY)
++        buildAnnotatedString {
++            append(spanned.toString().trimEnd())
++            spanned.getSpans(0, spanned.length, URLSpan::class.java).forEach { span ->
++                val start = spanned.getSpanStart(span).coerceAtMost(length)
++                val end = spanned.getSpanEnd(span).coerceAtMost(length)
++                if (start < end) addLink(
++                    LinkAnnotation.Url(
++                        span.url,
++                        TextLinkStyles(SpanStyle(
++                            color = linkColor,
++                            textDecoration = TextDecoration.Underline,
++                        )),
++                    ),
++                    start, end,
++                )
++            }
++            spanned.getSpans(0, spanned.length, StyleSpan::class.java).forEach { span ->
++                if (span.style and android.graphics.Typeface.BOLD != 0) addStyle(
++                    SpanStyle(fontWeight = FontWeight.Bold),
++                    spanned.getSpanStart(span).coerceAtMost(length),
++                    spanned.getSpanEnd(span).coerceAtMost(length),
++                )
++            }
++        }
++    }
++    Text(
++        text,
++        style = MaterialTheme.typography.bodyMedium,
++        color = MaterialTheme.colorScheme.onSurfaceVariant,
++        modifier = modifier,
++        textAlign = textAlign,
++    )
++}
++
++@Composable
++private fun InstallerActions(
++    state: InstallerDialogState,
++    enabled: Boolean,
++    onAction: (InstallerAction) -> Unit,
++) {
++    BoxWithConstraints(Modifier.fillMaxWidth()) {
++        val stack = maxWidth < 280.dp || LocalDensity.current.fontScale > 1.3f ||
++            maxOf(state.primary?.label?.length ?: 0, state.secondary?.label?.length ?: 0) > 16
++        if (stack) {
++            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
++                state.primary?.let { action ->
++                    ExpressiveInstallerButton(
++                        action.label, true, enabled, Modifier.fillMaxWidth()
++                    ) { onAction(action) }
++                }
++                state.secondary?.let { action ->
++                    ExpressiveInstallerButton(
++                        action.label, false, enabled, Modifier.fillMaxWidth()
++                    ) { onAction(action) }
++                }
++            }
++        } else {
++            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
++                state.secondary?.let { action ->
++                    ExpressiveInstallerButton(
++                        action.label, false, enabled, Modifier.weight(1f)
++                    ) { onAction(action) }
++                }
++                state.primary?.let { action ->
++                    ExpressiveInstallerButton(
++                        action.label, true, enabled, Modifier.weight(1f)
++                    ) { onAction(action) }
++                }
++            }
++        }
++    }
++}
++
++@Composable
++fun ExpressiveInstallerButton(
++    label: String,
++    primary: Boolean,
++    enabled: Boolean,
++    modifier: Modifier = Modifier,
++    onClick: () -> Unit,
++) {
++    val view = LocalView.current
++    val interactions = remember { MutableInteractionSource() }
++    val pressed by interactions.collectIsPressedAsState()
++    val scale by animateFloatAsState(
++        if (pressed) 0.96f else 1f,
++        spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium),
++        label = "button press",
++    )
++    Button(
++        onClick = {
++            view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_CLICK)
++            onClick()
++        },
++        enabled = enabled,
++        modifier = modifier.heightIn(min = 56.dp).graphicsLayer {
++            scaleX = scale
++            scaleY = scale
++        },
++        shapes = ButtonDefaults.shapes(
++            shape = RoundedCornerShape(28.dp),
++            pressedShape = RoundedCornerShape(16.dp),
++        ),
++        colors = if (primary) ButtonDefaults.buttonColors() else ButtonDefaults.filledTonalButtonColors(),
++        interactionSource = interactions,
++        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
++    ) {
++        Text(label, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
++    }
++}
