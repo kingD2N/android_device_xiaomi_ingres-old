@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
-# Build LineageOS 24 (Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build crDroid 17 (Android 17, basis LineageOS 24) untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-ingres.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-ingres.sh sync       # hanya sync source
-#   bash build-ingres.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-ingres.sh status     # lihat progres build yang sedang jalan
-#   bash build-ingres.sh upload     # upload ulang isi ~/hasil-los24 ke GoFile
-#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-ingres.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-ingres.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-crdroid.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-crdroid.sh sync       # hanya sync source
+#   bash build-crdroid.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-crdroid.sh status     # lihat progres build yang sedang jalan
+#   bash build-crdroid.sh upload     # upload ulang isi ~/hasil-crdroid ke GoFile
+#   bash build-crdroid.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-crdroid.sh bersih      # hapus source ROM lain / folder lama
+#   bash build-crdroid.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ingres.sh):
-#   SRC=~/los24        folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-crdroid.sh):
+#   SRC=~/crdroid      folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
@@ -21,15 +21,15 @@
 
 set -uo pipefail
 
-ROM=los24
-ROM_NAME="LineageOS 24"
-ROM_MANIFEST="https://github.com/LineageOS/android"; ROM_BRANCH="lineage-24.0"
-SRC="${SRC:-$HOME/los24}"
+ROM=crdroid
+ROM_NAME="crDroid 17"
+ROM_MANIFEST="https://github.com/crdroidandroid/android"; ROM_BRANCH="17.0"
+SRC="${SRC:-$HOME/crdroid}"
 VARIANT="${VARIANT:-user}"
-SESSION="los24"
+SESSION="crdroid"
 LOG="$HOME/build.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml"
-HASIL_DIR="$HOME/hasil-los24"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/crdroid-17.0/local_manifests/crdroid.xml"
+HASIL_DIR="$HOME/hasil-crdroid"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -60,7 +60,9 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/.ccache" "$@"; do
+    local others=() r
+    for r in "$HOME"/*/.repo; do [ -d "$r" ] && others+=("$(dirname "$r")"); done
+    for d in "${others[@]}" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -73,10 +75,10 @@ if [ "$CMD" = "bersih" ]; then
     fi
     echo "Yang akan DIHAPUS PERMANEN:"
     for d in $targets; do echo "   $d"; done
-    echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
+    echo "Folder hasil-* (zip ROM) tidak ikut dihapus."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris; do
+    for s in los24 aospa lunaris evox pixelos alpha axion ascp infinity uwu; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -146,7 +148,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/crdroid-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -159,7 +161,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/crdroid-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -273,9 +275,9 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != ingres.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != crdroid.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/crdroid.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -287,7 +289,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-los24.log"
+    local n slog="$HOME/sync-crdroid.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -379,7 +381,7 @@ do_build() {
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
+    zip=$(ls -t "$p"/crDroidAndroid-17*-ingres*.zip 2>/dev/null | grep -v -- -ota | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
     mkdir -p "$HASIL_DIR"
     cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null

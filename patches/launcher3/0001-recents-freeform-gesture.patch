@@ -1,6 +1,6 @@
-From 1359a6325456e20907088c5ca61e324a313e3b04 Mon Sep 17 00:00:00 2001
+From 7370e570098eb75ddb948bad4d45f165e84eeb4d Mon Sep 17 00:00:00 2001
 From: kingD2N <114895723+kingD2N@users.noreply.github.com>
-Date: Mon, 16 Nov 2026 04:10:27 +0800
+Date: Mon, 16 Nov 2026 20:15:31 +0800
 Subject: [PATCH] Launcher3: swipe up past a threshold to open the app as a
  bubble
 
@@ -8,7 +8,7 @@ Swipe up from an app and keep dragging. Past the chosen distance the
 phone vibrates once; releasing there sends the launcher home and opens
 the app as an app bubble instead.
 
-Home settings get a switch (off by default) and the swipe distance
+Settings > Recents gets a switch (off by default) and the swipe distance
 (45-80% of the screen height, default 60%). The gesture stays off when
 the shell cannot create app bubbles.
 ---
@@ -16,9 +16,9 @@ the shell cannot create app bubbles.
  .../util/RecentsFreeformGesture.java          | 115 ++++++++++++++++++
  res/values-in/freeform_gesture_strings.xml    |  21 ++++
  res/values/freeform_gesture_strings.xml       |  42 +++++++
- res/xml/launcher_preferences.xml              |  17 +++
+ res/xml/launcher_recents_preferences.xml      |  21 ++++
  src/com/android/launcher3/LauncherPrefs.kt    |   4 +
- 6 files changed, 220 insertions(+), 1 deletion(-)
+ 6 files changed, 224 insertions(+), 1 deletion(-)
  create mode 100644 quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java
  create mode 100644 res/values-in/freeform_gesture_strings.xml
  create mode 100644 res/values/freeform_gesture_strings.xml
@@ -290,48 +290,51 @@ index 0000000..756ccc7
 +        <item>80</item>
 +    </string-array>
 +</resources>
-diff --git a/res/xml/launcher_preferences.xml b/res/xml/launcher_preferences.xml
-index 3ef7795..fcbeb49 100644
---- a/res/xml/launcher_preferences.xml
-+++ b/res/xml/launcher_preferences.xml
-@@ -33,6 +33,23 @@
-         android:title="@string/pref_sleep_gesture_title"
-         android:summary="@string/pref_sleep_gesture_summary" />
+diff --git a/res/xml/launcher_recents_preferences.xml b/res/xml/launcher_recents_preferences.xml
+index 47f8b36..08c2a1c 100644
+--- a/res/xml/launcher_recents_preferences.xml
++++ b/res/xml/launcher_recents_preferences.xml
+@@ -81,5 +81,26 @@
+             android:persistent="true"
+             launcher:iconSpaceReserved="false" />
+     </PreferenceCategory>
++    <PreferenceCategory
++        android:key="recents_category_bubble"
++        android:title="@string/pref_recents_freeform_gesture_title">
++        <SwitchPreferenceCompat
++            android:key="pref_recents_freeform_gesture"
++            android:title="@string/pref_recents_freeform_gesture_title"
++            android:summary="@string/pref_recents_freeform_gesture_summary"
++            android:defaultValue="false"
++            android:persistent="true"
++            launcher:iconSpaceReserved="false" />
++        <DropDownPreference
++            android:key="pref_recents_freeform_threshold"
++            android:title="@string/pref_recents_freeform_threshold_title"
++            android:defaultValue="60"
++            android:dependency="pref_recents_freeform_gesture"
++            android:entries="@array/pref_recents_freeform_threshold_entries"
++            android:entryValues="@array/pref_recents_freeform_threshold_values"
++            android:persistent="true"
++            launcher:iconSpaceReserved="false"
++            launcher:useSimpleSummaryProvider="true" />
++    </PreferenceCategory>
  
-+    <SwitchPreferenceCompat
-+        android:defaultValue="false"
-+        android:key="pref_recents_freeform_gesture"
-+        android:persistent="true"
-+        android:title="@string/pref_recents_freeform_gesture_title"
-+        android:summary="@string/pref_recents_freeform_gesture_summary" />
-+
-+    <DropDownPreference
-+        android:defaultValue="60"
-+        android:dependency="pref_recents_freeform_gesture"
-+        android:entries="@array/pref_recents_freeform_threshold_entries"
-+        android:entryValues="@array/pref_recents_freeform_threshold_values"
-+        android:key="pref_recents_freeform_threshold"
-+        android:persistent="true"
-+        android:title="@string/pref_recents_freeform_threshold_title"
-+        launcher:useSimpleSummaryProvider="true" />
-+
-     <com.android.launcher3.settings.NotificationDotsPreference
-         android:key="pref_icon_badging"
-         android:title="@string/notification_dots_title"
+ </androidx.preference.PreferenceScreen>
 diff --git a/src/com/android/launcher3/LauncherPrefs.kt b/src/com/android/launcher3/LauncherPrefs.kt
-index c624c35..56ea53f 100644
+index 17cdc0f..6eff5df 100644
 --- a/src/com/android/launcher3/LauncherPrefs.kt
 +++ b/src/com/android/launcher3/LauncherPrefs.kt
-@@ -268,6 +268,10 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
-         @JvmField val SLEEP_GESTURE = backedUpItem("pref_sleep_gesture", false)
+@@ -282,6 +282,10 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
+         @JvmField val WORK_EDU_STEP = backedUpItem("showed_work_profile_edu", 0)
          @JvmField val WORKSPACE_LOCK = backedUpItem("pref_workspace_lock", false)
          @JvmField
 +        val RECENTS_FREEFORM_GESTURE = backedUpItem("pref_recents_freeform_gesture", false)
 +        @JvmField
 +        val RECENTS_FREEFORM_THRESHOLD = backedUpItem("pref_recents_freeform_threshold", "60")
 +        @JvmField
-         val PROMISE_ICON_IDS = nonRestorableItem(InstallSessionHelper.PROMISE_ICON_IDS, "")
-         @JvmField val WORK_EDU_STEP = backedUpItem("showed_work_profile_edu", 0)
+         val WORKSPACE_SIZE =
+             backedUpItem(DeviceGridState.KEY_WORKSPACE_SIZE, "", EncryptionType.ENCRYPTED)
          @JvmField
 -- 
 2.43.0
