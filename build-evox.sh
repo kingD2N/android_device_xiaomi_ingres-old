@@ -102,7 +102,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' PIXEL_LAUNCHER='${PIXEL_LAUNCHER:-0}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' PIXEL_LAUNCHER='${PIXEL_LAUNCHER:-0}' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -295,15 +295,35 @@ fix_ambient_streaming() {
 # PackageInstaller: tampilan pemasang aplikasi Lunaris (Compose Material 3 Expressive,
 # port dari Lunaris-AOSP/frameworks_base 16.2). Gaya bisa diganti tanpa build ulang:
 #   settings put secure package_installer_style 2   (0 = AOSP, 1 = dialog, 2 = bottom sheet)
+# Build GApps memasang GooglePackageInstaller (APK prebuilt) yang menimpa PackageInstaller,
+# jadi APK itu dibuang dari vendor/gms. GOOGLE_INSTALLER=1 = tetap pakai pemasang Google.
 PI_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0001-PackageInstaller-Lunaris-expressive-UI.patch"
 fix_package_installer() {
     [ -f "$PI_PATCH" ] && [ -d frameworks/base/packages/PackageInstaller ] || return 0
-    git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null && return 0   # sudah terpasang
+    if git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then   # sudah terpasang
+        drop_google_installer
+        return 0
+    fi
     if git -C frameworks/base apply "$PI_PATCH"; then
         info "Tambalan: PackageInstaller tampilan Lunaris"
     else
         err "Tambalan PackageInstaller Lunaris tidak cocok lagi (frameworks/base EvoX berubah), dilewati"
+        return 0
     fi
+    drop_google_installer
+}
+drop_google_installer() {
+    [ "${GOOGLE_INSTALLER:-0}" = 1 ] && return 0
+    local f changed=0
+    for f in vendor/gms/gms*.mk; do
+        [ -f "$f" ] || continue
+        if grep -q '^[[:space:]]*GooglePackageInstaller[[:space:]]*\\$' "$f"; then
+            sed -i '/^[[:space:]]*GooglePackageInstaller[[:space:]]*\\$/d' "$f"
+            changed=1
+        fi
+    done
+    [ $changed = 1 ] && info "Tambalan: GooglePackageInstaller dibuang, GApps pakai PackageInstaller Lunaris"
+    return 0
 }
 
 unpatch_source() {
