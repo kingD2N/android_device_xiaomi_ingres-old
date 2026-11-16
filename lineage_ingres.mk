@@ -19,6 +19,9 @@ $(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 ifeq ($(WITH_GMS),true)
 $(call inherit-product-if-exists, vendor/gms/gms_full.mk)
 DONT_DEXPREOPT_PREBUILTS := true
+# APK Google (GoogleDialer, GoogleContacts, dll.) mendaftarkan uses-library yang tidak
+# dicatat di Android.mk vendor_gms; EvoX melonggarkan pemeriksaannya dengan cara yang sama.
+RELAX_USES_LIBRARY_CHECK := true
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.opa.eligible_device=true \
     ro.setupwizard.rotation_locked=true \
