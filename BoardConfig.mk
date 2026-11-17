@@ -10,6 +10,11 @@ VENDOR_SECURITY_PATCH := 2025-04-01
 # /data tanpa enkripsi (lihat lineage_ingres.mk), dipakai recovery.fstab
 TARGET_DECRYPTED_DATA ?= true
 
+# RROS (vendor/rr) menyalakan OTA zstd (BOARD_OTA_ENABLE_REPLACE_ZSTD ?= true).
+# Recovery pihak ketiga (TWRP/OrangeFox) umumnya belum paham payload zstd, jadi zip
+# gagal diflash. Dimatikan (kembali ke xz) agar zip bisa diflash lewat TWRP/OFox.
+BOARD_OTA_ENABLE_REPLACE_ZSTD := false
+
 # Inherit from xiaomi sm8450-common
 include device/xiaomi/sm8450-common/BoardConfigCommon.mk
 
