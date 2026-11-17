@@ -457,9 +457,14 @@ do_build() {
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
     # kunci tanda tangan sendiri (sekali saja; simpan, jangan dibuat ulang tiap build)
-    if [ ! -f vendor/lineage-priv/keys/releasekey.pk8 ]; then
-        info "Membuat kunci tanda tangan (gk -s) di vendor/lineage-priv/keys"
+    # gk membaca ANDROID_KEY_PATH; kalau kosong, kunci ditulis ke "/nfc.pk8" dst (Permission denied).
+    # Hanya diisi kalau belum ada (variabel server tidak ditimpa).
+    export ANDROID_KEY_PATH="${ANDROID_KEY_PATH:-$PWD/vendor/lineage-priv/keys}"
+    if [ ! -f "$ANDROID_KEY_PATH/releasekey.pk8" ]; then
+        info "Membuat kunci tanda tangan (gk -s) di $ANDROID_KEY_PATH"
+        mkdir -p "$ANDROID_KEY_PATH"
         gk -s >/dev/null || { err "gk -s gagal membuat kunci"; exit 1; }
+        [ -f "$ANDROID_KEY_PATH/releasekey.pk8" ] || { err "kunci tanda tangan tidak terbentuk di $ANDROID_KEY_PATH"; exit 1; }
     fi
     # axion = lunch versi AxionOS (mengatur WITH_GMS & varian GApps)
     axion ingres "$VARIANT" "$gms"
