@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# Build LineageOS 24 (Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build ResurrectedRemix OS 17 (Android 17, basis LineageOS 24) untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-ingres.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-ingres.sh sync       # hanya sync source
-#   bash build-ingres.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-ingres.sh status     # lihat progres build yang sedang jalan
-#   bash build-ingres.sh upload     # upload ulang isi ~/hasil-los24 ke GoFile
-#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-ingres.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-ingres.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-rros.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-rros.sh sync       # hanya sync source
+#   bash build-rros.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-rros.sh status     # lihat progres build yang sedang jalan
+#   bash build-rros.sh upload     # upload ulang isi ~/hasil-rros ke GoFile
+#   bash build-rros.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-rros.sh bersih ~/aospa   # hapus source ROM lain / folder lama
+#   bash build-rros.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ingres.sh):
-#   SRC=~/los24        folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-rros.sh):
+#   SRC=~/rros         folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
-#   GAPPS=1            build dengan GApps (default, dari Evolution-X vendor_gms)
+#   GAPPS=1            build dengan GApps (default, vendor/gms bawaan RROS)
 #   GAPPS=0            build vanilla tanpa GApps
 #   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
@@ -24,15 +24,15 @@
 
 set -uo pipefail
 
-ROM=los24
-ROM_NAME="LineageOS 24"
-ROM_MANIFEST="https://github.com/LineageOS/android"; ROM_BRANCH="lineage-24.0"
-SRC="${SRC:-$HOME/los24}"
+ROM=rros
+ROM_NAME="ResurrectedRemix OS 17"
+ROM_MANIFEST="https://github.com/ResurrectedRemixOS/manifest"; ROM_BRANCH="rr-17.0"
+SRC="${SRC:-$HOME/rros}"
 VARIANT="${VARIANT:-user}"
-SESSION="los24"
+SESSION="rros"
 LOG="$HOME/build.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml"
-HASIL_DIR="$HOME/hasil-los24"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/rros-17.0/local_manifests/rros.xml"
+HASIL_DIR="$HOME/hasil-rros"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -63,7 +63,9 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/.ccache" "$@"; do
+    others=()
+    for r in "$HOME"/*/.repo; do [ -d "$r" ] && others+=("$(dirname "$r")"); done
+    for d in "${others[@]}" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -76,10 +78,10 @@ if [ "$CMD" = "bersih" ]; then
     fi
     echo "Yang akan DIHAPUS PERMANEN:"
     for d in $targets; do echo "   $d"; done
-    echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
+    echo "Folder hasil-* (zip ROM) tidak ikut dihapus."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris; do
+    for s in los24 aospa lunaris evox pixelos alpha axion ascp infinity uwu crdroid rros; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -149,7 +151,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/rros-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -162,7 +164,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/rros-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -235,13 +237,8 @@ fix_launcher3_bubble() {
 }
 
 # ------------------------------------------------------------- GApps
-# Paket GApps Android 17 dari Evolution-X vendor_gms (GitHub, isi APK lewat Git LFS).
-GMS_MANIFEST='<?xml version="1.0" encoding="UTF-8"?>
-<!-- GApps untuk LineageOS 24 ingres (dibuat otomatis oleh build-ingres.sh) -->
-<manifest>
-  <remote name="evo-gms" fetch="https://github.com/Evolution-X" />
-  <project path="vendor/gms" name="vendor_gms" remote="evo-gms" revision="cnb" clone-depth="1" />
-</manifest>'
+# GApps: RROS membawa vendor/gms sendiri lewat manifest-nya (GitLab osm1019), jadi tidak
+# ada local manifest GApps tambahan. GAPPS=0 = WITH_GMS=false (vanilla).
 want_gms() { [ "${GAPPS:-1}" != 0 ] && [ "${GAPPS:-1}" != vanilla ]; }
 
 # Pixel Launcher di vendor_gms butuh overlay Pixel (recents) yang tidak ada di LineageOS,
@@ -329,10 +326,9 @@ unpatch_source() {
 patch_source() {
     fix_dolby_vision
     fix_gamekey
-    fix_launcher3_bubble
-    fix_package_installer
-    fix_gms_launcher
     fix_gms_lfs
+    # (Launcher3 gelembung, PackageInstaller Lunaris dan buang Pixel Launcher belum dipakai
+    #  di RROS: source Launcher3/frameworks RROS berbeda dari LineageOS, belum diuji)
 }
 
 # ------------------------------------------------------------------ sync
@@ -364,13 +360,12 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        case "$(basename "$f")" in ingres.xml|gapps.xml) continue ;; esac
+        case "$(basename "$f")" in rros.xml) continue ;; esac
         [ -e "$f" ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/rros.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
     if want_gms; then
-        printf '%s\n' "$GMS_MANIFEST" > .repo/local_manifests/gapps.xml
-        info "GApps: vendor/gms (Evolution-X vendor_gms) ikut di-sync"
+        info "GApps: vendor/gms bawaan manifest RROS ikut di-sync"
     fi
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
@@ -383,7 +378,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-los24.log"
+    local n slog="$HOME/sync-rros.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -419,7 +414,7 @@ do_sync() {
 # Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
 # lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
 fix_kernel_headers() {
-    local g=out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes
+    local g=out/soong/.intermediates/vendor/rr/build/soong/generated_kernel_includes
     [ -d "$g" ] || return 0
     if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
         || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
@@ -519,7 +514,7 @@ build_variant() {
     fi
 
     local p="out/target/product/ingres" zip out
-    zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
+    zip=$(ls -t "$p"/ResurrectedRemix-*-ingres.zip 2>/dev/null | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
     out="$(basename "$zip")"
     [ "$gms" = true ] && out="${out%.zip}-GApps.zip"

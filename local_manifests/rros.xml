@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    LineageOS 24.0 (Android 17) untuk POCO F4 GT / Redmi K50 Gaming (ingres).
-    Taruh di .repo/local_manifests/ingres.xml - langkah lengkap ada di README.md.
+    ResurrectedRemix OS 17 (Android 17, basis LineageOS 24.0) untuk POCO F4 GT / Redmi K50 Gaming (ingres).
+    Dipasang otomatis oleh build-rros.sh ke .repo/local_manifests/rros.xml.
+    vendor/gms (GApps) sudah dibawa manifest RROS sendiri (GitLab osm1019), jadi tidak ditambah di sini.
 -->
 <manifest>
   <remote name="d2n" fetch="https://github.com/kingD2N" />
@@ -9,7 +10,7 @@
   <remote name="muppets" fetch="https://github.com/TheMuppets" />
 
   <!-- Device // ingres -->
-  <project name="android_device_xiaomi_ingres-old" path="device/xiaomi/ingres" remote="d2n" revision="lineage-24.0" />
+  <project name="android_device_xiaomi_ingres-old" path="device/xiaomi/ingres" remote="d2n" revision="rros-17.0" />
   <!-- Device // common -->
   <project name="Ingres_device_xiaomi_sm8450-common" path="device/xiaomi/sm8450-common" remote="d2n" revision="lineage-24.0" />
   <project name="android_hardware_xiaomi" path="hardware/xiaomi" remote="los" revision="lineage-24.0" />

@@ -12,12 +12,16 @@ TARGET_DECRYPTED_DATA ?= true
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
 # Inherit from common lineage configuration
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+# ResurrectedRemix OS memakai vendor/rr (pengganti vendor/lineage); nama maintainer
+# harus diisi sebelum vendor/rr dibaca.
+RR_MAINTAINER := kingD2N
+
+$(call inherit-product, vendor/rr/config/common_full_phone.mk)
 
 # GApps (build-ingres.sh GAPPS=1): paket GApps Android 17 dari Evolution-X vendor_gms (cnb).
 # Pixel Launcher dibuang oleh build-ingres.sh supaya layar utama tetap Trebuchet (Launcher3).
 ifeq ($(WITH_GMS),true)
-$(call inherit-product-if-exists, vendor/gms/gms_full.mk)
+# vendor/gms (gms_full.mk + gms_setup.mk) sudah di-inherit oleh vendor/rr saat WITH_GMS=true
 DONT_DEXPREOPT_PREBUILTS := true
 # APK Google (GoogleDialer, GoogleContacts, dll.) mendaftarkan uses-library yang tidak
 # dicatat di Android.mk vendor_gms; EvoX melonggarkan pemeriksaannya dengan cara yang sama.
