@@ -93,18 +93,19 @@ index 150fe24..6c0563e 100644
          mContainerInterface = gestureState.getContainerInterface();
          mContextInitListener =
                  mContainerInterface.createActivityInitListener(this::onActivityInit);
-@@ -1024,6 +1030,10 @@ public abstract class AbsSwipeUpHandler<
+@@ -1024,6 +1030,11 @@ public abstract class AbsSwipeUpHandler<
          applyScrollAndTransform();
  
          updateLauncherTransitionProgress();
 +        if (mFreeformGesture != null) {
 +            mFreeformGesture.onShiftUpdated(
-+                    getCurrentShiftValue(), mDragLengthFactor, isGestureOngoing());
++                    mCurrentShift.value, mDragLengthFactor,
++                    mGestureStarted && !mStateCallback.hasStates(STATE_GESTURE_COMPLETED));
 +        }
      }
  
      private void updateLauncherTransitionProgress() {
-@@ -1574,10 +1584,20 @@ public abstract class AbsSwipeUpHandler<
+@@ -1574,10 +1585,20 @@ public abstract class AbsSwipeUpHandler<
              boolean horizontalTouchSlopPassed) {
          long duration = MAX_SWIPE_DURATION;
          float currentShift = mCurrentShift.value;

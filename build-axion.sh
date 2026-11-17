@@ -215,10 +215,26 @@ fix_dolby_vision() {
 # Pengaturan Launcher > Overview > "Swipe up for app bubble" (jarak geser bisa diatur).
 L3_DIR=packages/apps/Launcher3
 L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-recents-freeform-gesture.patch"
+# Kembalikan berkas yang disentuh sebuah tambalan ke kondisi repo (dipakai kalau versi
+# tambalan lama sudah terpasang dan tidak bisa di-reverse lagi dengan tambalan baru).
+reset_patch_files() {
+    local dir="$1" patch="$2" f
+    while IFS= read -r f; do
+        if git -C "$dir" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+            git -C "$dir" checkout -q -- "$f" 2>/dev/null || true
+        else
+            rm -f "$dir/$f"
+        fi
+    done < <(sed -n 's#^diff --git a/\(.*\) b/.*#\1#p' "$patch")
+}
 fix_launcher3_bubble() {
     [ -f "$L3_PATCH" ] && [ -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ] || return 0
     if ! git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then   # belum terpasang
-        if git -C "$L3_DIR" apply "$L3_PATCH"; then
+        if ! git -C "$L3_DIR" apply "$L3_PATCH" 2>/dev/null; then
+            # mungkin versi tambalan lama masih terpasang: bersihkan lalu pasang ulang
+            reset_patch_files "$L3_DIR" "$L3_PATCH"
+        fi
+        if git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null || git -C "$L3_DIR" apply "$L3_PATCH"; then
             info "Tambalan: Launcher3 geser ke atas -> gelembung aplikasi"
         else
             err "Tambalan Launcher3 gelembung tidak cocok lagi (Launcher3 AxionOS berubah), dilewati"
@@ -272,8 +288,12 @@ unpatch_source() {
         git -C frameworks/base apply -R "$PI_PATCH" || true
     fi
     git -C vendor/gms checkout -q -- '*.mk' 2>/dev/null || true
-    if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
-        git -C "$L3_DIR" apply -R "$L3_PATCH" || true
+    if [ -f "$L3_PATCH" ] && [ -d "$L3_DIR/.git" -o -f "$L3_DIR/.git" ]; then
+        if git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
+            git -C "$L3_DIR" apply -R "$L3_PATCH" || true
+        else
+            reset_patch_files "$L3_DIR" "$L3_PATCH"   # versi tambalan lama
+        fi
     fi
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
