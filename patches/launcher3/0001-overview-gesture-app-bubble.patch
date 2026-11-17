@@ -1,0 +1,132 @@
+diff --git a/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java b/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java
+index f1dc833..da774a0 100644
+--- a/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java
++++ b/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java
+@@ -75,6 +75,7 @@ import android.animation.AnimatorSet;
+ import android.animation.ValueAnimator;
+ import android.app.ActivityManager;
+ import android.app.TaskInfo;
++import android.os.UserHandle;
+ import android.content.ComponentName;
+ import android.content.Context;
+ import android.content.Intent;
+@@ -132,6 +133,7 @@ import com.android.launcher3.statehandlers.DesktopVisibilityController;
+ import com.android.launcher3.statemanager.BaseState;
+ import com.android.launcher3.statemanager.StatefulContainer;
+ import com.android.launcher3.taskbar.TaskbarInteractor;
++import com.android.launcher3.taskbar.bubbles.BubbleActivityStarter;
+ import com.android.launcher3.taskbar.TaskbarThresholdUtils;
+ import com.android.launcher3.taskbar.customization.TaskbarFeatureEvaluator;
+ import com.android.launcher3.uioverrides.QuickstepLauncher;
+@@ -183,6 +185,7 @@ import com.android.systemui.shared.system.TaskStackChangeListener;
+ import com.android.systemui.shared.system.TaskStackChangeListeners;
+ import com.android.wm.shell.shared.GroupedTaskInfo;
+ import com.android.wm.shell.shared.TransactionPool;
++import com.android.wm.shell.shared.bubbles.logging.EntryPoint;
+ import com.android.wm.shell.shared.desktopmode.DesktopModeStatus;
+ import com.android.wm.shell.shared.pip.PipFlags;
+ import com.android.wm.shell.shared.startingsurface.SplashScreenExitAnimationUtils;
+@@ -218,6 +221,7 @@ public abstract class AbsSwipeUpHandler<
+     private static final String LMO_FREEFORM_INTENT = "com.libremobileos.freeform.START_FREEFORM";
+     private static final String LMO_FREEFORM_PACKAGE = "com.libremobileos.freeform";
+     private static final String OVERVIEW_GESTURE_ACTION_SPLIT_SCREEN = "split_screen";
++    private static final String OVERVIEW_GESTURE_ACTION_BUBBLE = "bubble";
+ 
+     protected final RecentsAnimationDeviceState mDeviceState;
+     protected final BaseContainerInterface<STATE, RECENTS_CONTAINER> mContainerInterface;
+@@ -2746,6 +2750,11 @@ public abstract class AbsSwipeUpHandler<
+                 LauncherPrefs.OVERVIEW_GESTURE_ACTION.get(mContext));
+     }
+ 
++    private boolean isBubbleOverviewGestureAction() {
++        return OVERVIEW_GESTURE_ACTION_BUBBLE.equals(
++                LauncherPrefs.OVERVIEW_GESTURE_ACTION.get(mContext));
++    }
++
+     private float getOverviewGestureThreshold() {
+         int progress = LauncherPrefs.FREEFORM_GESTURE_PROGRESS.get(mContext);
+         return Utilities.boundToRange(progress / 10f, 1f, 5f);
+@@ -2905,6 +2914,9 @@ public abstract class AbsSwipeUpHandler<
+         if (isSplitScreenOverviewGestureAction()) {
+             return mHasSplitScreenGestureStarted ? RECENTS : null;
+         }
++        if (isBubbleOverviewGestureAction()) {
++            return maybeStartBubbleFromGesture();
++        }
+         if (mCurrentShift.value < getOverviewGestureThreshold()
+                 || !Utilities.isLmoFreeformAvailable(mContext)) {
+             return null;
+@@ -2918,6 +2930,36 @@ public abstract class AbsSwipeUpHandler<
+         return HOME;
+     }
+ 
++    /** Swipe up past the threshold: go home, then open the running app as an app bubble. */
++    private GestureEndTarget maybeStartBubbleFromGesture() {
++        if (mCurrentShift.value < getOverviewGestureThreshold()) {
++            return null;
++        }
++        TaskInfo runningTask = getRunningTaskInfo();
++        if (runningTask == null || runningTask.taskId == -1) {
++            return null;
++        }
++        ComponentName topActivity = runningTask.topActivity != null
++                ? runningTask.topActivity
++                : runningTask.baseActivity;
++        if (topActivity == null) {
++            return null;
++        }
++        Intent launchIntent = mContext.getPackageManager()
++                .getLaunchIntentForPackage(topActivity.getPackageName());
++        if (launchIntent == null) {
++            launchIntent = new Intent(Intent.ACTION_MAIN)
++                    .addCategory(Intent.CATEGORY_LAUNCHER)
++                    .setComponent(topActivity);
++        }
++        final Intent bubbleIntent = launchIntent;
++        final UserHandle bubbleUser = UserHandle.of(runningTask.userId);
++        mGestureState.runOnceAtState(STATE_END_TARGET_ANIMATION_FINISHED,
++                () -> BubbleActivityStarter.INSTANCE.get(mContext).showAppBubble(
++                        bubbleIntent, bubbleUser, EntryPoint.TASKBAR_ICON_MENU));
++        return HOME;
++    }
++
+     private boolean startSplitScreenFromGesture(int taskId) {
+         if (mRecentsView == null || mContainer == null) {
+             return false;
+diff --git a/res/values-in/overview_gesture_bubble_strings.xml b/res/values-in/overview_gesture_bubble_strings.xml
+new file mode 100644
+index 0000000..4fba247
+--- /dev/null
++++ b/res/values-in/overview_gesture_bubble_strings.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="overview_gesture_action_bubble">Gelembung aplikasi</string>
++</resources>
+diff --git a/res/values/cr_arrays.xml b/res/values/cr_arrays.xml
+index e90bf77..a84b897 100644
+--- a/res/values/cr_arrays.xml
++++ b/res/values/cr_arrays.xml
+@@ -15,10 +15,12 @@
+     <string-array name="overview_gesture_action_entries">
+         <item>@string/overview_gesture_action_freeform</item>
+         <item>@string/overview_gesture_action_split_screen</item>
++        <item>@string/overview_gesture_action_bubble</item>
+     </string-array>
+ 
+     <string-array name="overview_gesture_action_values" translatable="false">
+         <item>freeform</item>
+         <item>split_screen</item>
++        <item>bubble</item>
+     </string-array>
+ </resources>
+diff --git a/res/values/overview_gesture_bubble_strings.xml b/res/values/overview_gesture_bubble_strings.xml
+new file mode 100644
+index 0000000..f803cc0
+--- /dev/null
++++ b/res/values/overview_gesture_bubble_strings.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="overview_gesture_action_bubble">App bubble</string>
++</resources>

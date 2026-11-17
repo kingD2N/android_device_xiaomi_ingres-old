@@ -221,19 +221,37 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
-# Launcher3: geser ke atas dari aplikasi melewati batas (ada getar), lepas -> aplikasi
-# dibuka sebagai gelembung (bubble). Pengaturan ada di Setelan Layar utama.
+# Launcher3 RROS: gestur "geser ke atas dari aplikasi" bawaan (Setelan Launcher > Recents >
+# Gestur) mendapat aksi ketiga "Gelembung aplikasi" selain Freeform dan Layar terpisah.
+# Pilih aksinya di pengaturan itu, lalu geser ke atas melewati batas (ada getar) dan lepas
+# -> aplikasi dibuka sebagai gelembung. Gaya Recents (iOS dll) tidak disentuh.
 # Patch disimpan di device tree.
 L3_DIR=packages/apps/Launcher3
-L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-recents-freeform-gesture.patch"
+L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-overview-gesture-app-bubble.patch"
+# Kembalikan berkas yang disentuh sebuah tambalan ke kondisi repo (dipakai kalau versi
+# tambalan lama masih terpasang dan tidak cocok dengan tambalan baru).
+reset_patch_files() {
+    local dir="$1" patch="$2" f
+    while IFS= read -r f; do
+        if git -C "$dir" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+            git -C "$dir" checkout -q -- "$f" 2>/dev/null || true
+        else
+            rm -f "$dir/$f"
+        fi
+    done < <(sed -n 's#^diff --git a/\(.*\) b/.*#\1#p' "$patch")
+}
 fix_launcher3_bubble() {
     [ -f "$L3_PATCH" ] && [ -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ] || return 0
     git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null && return 0   # sudah terpasang
-    if git -C "$L3_DIR" apply "$L3_PATCH"; then
-        info "Tambalan: Launcher3 geser ke atas -> gelembung aplikasi"
-    else
-        err "Tambalan Launcher3 gelembung tidak cocok lagi (Launcher3 berubah), dilewati"
+    if ! git -C "$L3_DIR" apply "$L3_PATCH" 2>/dev/null; then
+        # mungkin tambalan versi lama masih terpasang: bersihkan lalu pasang ulang
+        reset_patch_files "$L3_DIR" "$L3_PATCH"
+        git -C "$L3_DIR" apply "$L3_PATCH" 2>/dev/null || {
+            err "Tambalan Launcher3 gelembung tidak cocok lagi (Launcher3 RROS berubah), dilewati"
+            return 0
+        }
     fi
+    info "Tambalan: Launcher3 gestur geser ke atas -> aksi gelembung aplikasi"
 }
 
 # ------------------------------------------------------------- GApps
@@ -327,7 +345,8 @@ patch_source() {
     fix_dolby_vision
     fix_gamekey
     fix_gms_lfs
-    # (Launcher3 gelembung, PackageInstaller Lunaris dan buang Pixel Launcher belum dipakai
+    fix_launcher3_bubble
+    # (Launcher3 gelembung sudah aktif; PackageInstaller Lunaris dan buang Pixel Launcher belum dipakai
     #  di RROS: source Launcher3/frameworks RROS berbeda dari LineageOS, belum diuji)
 }
 
