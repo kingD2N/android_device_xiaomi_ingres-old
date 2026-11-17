@@ -254,6 +254,35 @@ fix_launcher3_bubble() {
     info "Tambalan: Launcher3 gestur geser ke atas -> aksi gelembung aplikasi"
 }
 
+# Refresh rate per aplikasi (Setelan > Layar > Refresh rate per aplikasi), seperti Lunaris.
+# Framework: WindowManager (RefreshRatePolicy) memakai pilihan pengguna untuk aplikasi yang
+# sedang tampil. Settings: halaman pilihan Hz tiap aplikasi. Pilihan disimpan di
+# Settings.System "per_app_refresh_rate". Rate di atas batas sistem butuh Smooth Display nyala.
+FW_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0002-per-app-refresh-rate.patch"
+SET_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/settings/0001-per-app-refresh-rate.patch"
+# Pasang satu tambalan dengan aman: lewati kalau sudah terpasang, bersihkan versi lama kalau
+# perlu. $1=folder repo, $2=berkas tambalan, $3=berkas penanda, $4=nama untuk pesan.
+apply_tree_patch() {
+    local dir="$1" patch="$2" marker="$3" name="$4"
+    [ -f "$patch" ] && [ -f "$dir/$marker" ] || return 0
+    git -C "$dir" apply --check -R "$patch" 2>/dev/null && return 0   # sudah terpasang
+    if ! git -C "$dir" apply "$patch" 2>/dev/null; then
+        reset_patch_files "$dir" "$patch"
+        git -C "$dir" apply "$patch" 2>/dev/null || {
+            err "Tambalan $name tidak cocok lagi (source RROS berubah), dilewati"
+            return 0
+        }
+    fi
+    info "Tambalan: $name"
+}
+fix_per_app_refresh_rate() {
+    apply_tree_patch frameworks/base "$FW_PERAPP_PATCH" \
+        services/core/java/com/android/server/wm/RefreshRatePolicy.java \
+        "refresh rate per aplikasi (framework)"
+    apply_tree_patch packages/apps/Settings "$SET_PERAPP_PATCH" \
+        res/xml/display_settings.xml "refresh rate per aplikasi (Settings)"
+}
+
 # ------------------------------------------------------------- GApps
 # GApps: RROS membawa vendor/gms sendiri lewat manifest-nya (GitLab osm1019), jadi tidak
 # ada local manifest GApps tambahan. GAPPS=0 = WITH_GMS=false (vanilla).
@@ -340,12 +369,19 @@ unpatch_source() {
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
         git -C "$L3_DIR" apply -R "$L3_PATCH" || true
     fi
+    if [ -f "$FW_PERAPP_PATCH" ] && git -C frameworks/base apply --check -R "$FW_PERAPP_PATCH" 2>/dev/null; then
+        git -C frameworks/base apply -R "$FW_PERAPP_PATCH" || true
+    fi
+    if [ -f "$SET_PERAPP_PATCH" ] && git -C packages/apps/Settings apply --check -R "$SET_PERAPP_PATCH" 2>/dev/null; then
+        git -C packages/apps/Settings apply -R "$SET_PERAPP_PATCH" || true
+    fi
 }
 patch_source() {
     fix_dolby_vision
     fix_gamekey
     fix_gms_lfs
     fix_launcher3_bubble
+    fix_per_app_refresh_rate
     # (Launcher3 gelembung sudah aktif; PackageInstaller Lunaris dan buang Pixel Launcher belum dipakai
     #  di RROS: source Launcher3/frameworks RROS berbeda dari LineageOS, belum diuji)
 }
