@@ -1,0 +1,126 @@
+diff --git a/res/values-in/package_installer_style_strings.xml b/res/values-in/package_installer_style_strings.xml
+new file mode 100644
+index 0000000..0c53eb9
+--- /dev/null
++++ b/res/values-in/package_installer_style_strings.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="package_installer_style_title">Gaya pemasang paket</string>
++    <string name="package_installer_style_default">Bawaan (AOSP)</string>
++    <string name="package_installer_style_dialog">Dialog</string>
++    <string name="package_installer_style_bottom_sheet">Lembar bawah</string>
++</resources>
+diff --git a/res/values/package_installer_style_strings.xml b/res/values/package_installer_style_strings.xml
+new file mode 100644
+index 0000000..b178cfb
+--- /dev/null
++++ b/res/values/package_installer_style_strings.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <!-- Package installer style -->
++    <string name="package_installer_style_title">Package installer style</string>
++    <string name="package_installer_style_default">Default (AOSP)</string>
++    <string name="package_installer_style_dialog">Dialog</string>
++    <string name="package_installer_style_bottom_sheet">Bottom sheet</string>
++
++    <string-array name="package_installer_style_entries">
++        <item>@string/package_installer_style_default</item>
++        <item>@string/package_installer_style_dialog</item>
++        <item>@string/package_installer_style_bottom_sheet</item>
++    </string-array>
++    <string-array name="package_installer_style_values" translatable="false">
++        <item>0</item>
++        <item>1</item>
++        <item>2</item>
++    </string-array>
++</resources>
+diff --git a/res/xml/apps.xml b/res/xml/apps.xml
+index 6943c0d..ea516a5 100644
+--- a/res/xml/apps.xml
++++ b/res/xml/apps.xml
+@@ -60,6 +60,15 @@
+         android:order="-996"
+         settings:controller="com.android.settings.applications.DefaultAppsPreferenceController"/>
+ 
++    <ListPreference
++        android:key="package_installer_style"
++        android:title="@string/package_installer_style_title"
++        android:dialogTitle="@string/package_installer_style_title"
++        android:entries="@array/package_installer_style_entries"
++        android:entryValues="@array/package_installer_style_values"
++        android:order="-993"
++        settings:controller="com.android.settings.applications.PackageInstallerStylePreferenceController"/>
++
+     <Preference
+         android:key="cloned_apps"
+         android:title="@string/cloned_apps_dashboard_title"
+diff --git a/src/com/android/settings/applications/PackageInstallerStylePreferenceController.java b/src/com/android/settings/applications/PackageInstallerStylePreferenceController.java
+new file mode 100644
+index 0000000..638e9a7
+--- /dev/null
++++ b/src/com/android/settings/applications/PackageInstallerStylePreferenceController.java
+@@ -0,0 +1,62 @@
++/*
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++package com.android.settings.applications;
++
++import android.content.Context;
++import android.provider.Settings;
++
++import androidx.preference.ListPreference;
++import androidx.preference.Preference;
++import androidx.preference.PreferenceScreen;
++
++import com.android.settings.core.BasePreferenceController;
++
++/**
++ * Chooses the look of the package installer: 0 = AOSP, 1 = dialog, 2 = bottom sheet.
++ * Stored in Settings.Secure "package_installer_style", read by PackageInstaller each time it
++ * opens (default is the dialog style).
++ */
++public class PackageInstallerStylePreferenceController extends BasePreferenceController
++        implements Preference.OnPreferenceChangeListener {
++
++    /** Must match InstallerStyle.SETTING_NAME in PackageInstaller. */
++    private static final String SETTING = "package_installer_style";
++    private static final int DEFAULT_STYLE = 1;
++
++    public PackageInstallerStylePreferenceController(Context context, String preferenceKey) {
++        super(context, preferenceKey);
++    }
++
++    @Override
++    public int getAvailabilityStatus() {
++        return AVAILABLE;
++    }
++
++    @Override
++    public void displayPreference(PreferenceScreen screen) {
++        super.displayPreference(screen);
++        final Preference preference = screen.findPreference(getPreferenceKey());
++        if (preference != null) {
++            preference.setOnPreferenceChangeListener(this);
++        }
++    }
++
++    @Override
++    public void updateState(Preference preference) {
++        final ListPreference list = (ListPreference) preference;
++        final int style = Settings.Secure.getInt(
++                mContext.getContentResolver(), SETTING, DEFAULT_STYLE);
++        list.setValue(String.valueOf(style));
++        list.setSummary(list.getEntry());
++    }
++
++    @Override
++    public boolean onPreferenceChange(Preference preference, Object newValue) {
++        Settings.Secure.putInt(
++                mContext.getContentResolver(), SETTING, Integer.parseInt((String) newValue));
++        updateState(preference);
++        return true;
++    }
++}

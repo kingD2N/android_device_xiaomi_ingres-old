@@ -260,6 +260,9 @@ fix_launcher3_bubble() {
 # Settings.System "per_app_refresh_rate". Rate di atas batas sistem butuh Smooth Display nyala.
 FW_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0002-per-app-refresh-rate.patch"
 SET_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/settings/0001-per-app-refresh-rate.patch"
+# Settings > Aplikasi > Gaya pemasang paket (0 = AOSP, 1 = dialog, 2 = lembar bawah), dipakai
+# bersama tambalan PackageInstaller Lunaris (fix_package_installer).
+SET_PISTYLE_PATCH="$SRC/device/xiaomi/ingres/patches/settings/0002-package-installer-style.patch"
 # Pasang satu tambalan dengan aman: lewati kalau sudah terpasang, bersihkan versi lama kalau
 # perlu. $1=folder repo, $2=berkas tambalan, $3=berkas penanda, $4=nama untuk pesan.
 apply_tree_patch() {
@@ -281,6 +284,8 @@ fix_per_app_refresh_rate() {
         "refresh rate per aplikasi (framework)"
     apply_tree_patch packages/apps/Settings "$SET_PERAPP_PATCH" \
         res/xml/display_settings.xml "refresh rate per aplikasi (Settings)"
+    apply_tree_patch packages/apps/Settings "$SET_PISTYLE_PATCH" \
+        res/xml/apps.xml "gaya pemasang paket (Settings)"
 }
 
 # ------------------------------------------------------------- GApps
@@ -375,6 +380,9 @@ unpatch_source() {
     if [ -f "$SET_PERAPP_PATCH" ] && git -C packages/apps/Settings apply --check -R "$SET_PERAPP_PATCH" 2>/dev/null; then
         git -C packages/apps/Settings apply -R "$SET_PERAPP_PATCH" || true
     fi
+    if [ -f "$SET_PISTYLE_PATCH" ] && git -C packages/apps/Settings apply --check -R "$SET_PISTYLE_PATCH" 2>/dev/null; then
+        git -C packages/apps/Settings apply -R "$SET_PISTYLE_PATCH" || true
+    fi
 }
 patch_source() {
     fix_dolby_vision
@@ -382,8 +390,8 @@ patch_source() {
     fix_gms_lfs
     fix_launcher3_bubble
     fix_per_app_refresh_rate
-    # (Launcher3 gelembung sudah aktif; PackageInstaller Lunaris dan buang Pixel Launcher belum dipakai
-    #  di RROS: source Launcher3/frameworks RROS berbeda dari LineageOS, belum diuji)
+    fix_package_installer
+    # (Buang Pixel Launcher belum dipakai di RROS: Launcher3 RROS berbeda dari LineageOS, belum diuji)
 }
 
 # ------------------------------------------------------------------ sync
