@@ -30,6 +30,22 @@
     <integer name="config_autoBrightnessBrighteningLightDebounce">2500</integer>
     <integer name="config_autoBrightnessDarkeningLightDebounce">5000</integer>
 
+    <!-- Getar lebih kuat: motor getar ingres (qcom-hv-haptics) terasa lemah pada intensitas Sedang.
+         0=mati 1=rendah 2=sedang 3=tinggi. Hanya berlaku sebagai bawaan (setelah wipe data);
+         pilihan pengguna di Pengaturan > Getaran & haptik tetap menang. -->
+    <integer name="config_defaultAlarmVibrationIntensity">3</integer>
+    <integer name="config_defaultHapticFeedbackIntensity">3</integer>
+    <integer name="config_defaultMediaVibrationIntensity">3</integer>
+    <integer name="config_defaultNotificationVibrationIntensity">3</integer>
+    <integer name="config_defaultRingVibrationIntensity">3</integer>
+    <integer name="config_defaultKeyboardVibrationIntensity">3</integer>
+    <!-- Faktor skala amplitudo per tingkat (rendah/sedang/tinggi): kuat sampai tinggi tetap terasa -->
+    <string-array name="config_vibrationIntensityScaleFactors" translatable="false">
+        <item>0.9</item>
+        <item>1.3</item>
+        <item>1.8</item>
+    </string-array>
+
     <!-- Laju transisi kecerahan (unit/detik, skala 0-255): lebih halus dari default (180/60) -->
     <integer name="config_brightness_ramp_rate_fast">120</integer>
     <integer name="config_brightness_ramp_rate_slow">30</integer>
