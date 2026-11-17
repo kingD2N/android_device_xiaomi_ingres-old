@@ -283,11 +283,44 @@ drop_google_installer() {
     return 0
 }
 
+# FPS per aplikasi (seperti RROS/Lunaris): Pengaturan > Tampilan > "Refresh rate per aplikasi".
+# Framework (RefreshRatePolicy + PerAppRefreshRateStore) membaca Settings.System per_app_refresh_rate
+# ("paket=rate,paket=rate"); app Settings menyediakan layar pemilihannya. Rate yang dipilih
+# diabaikan untuk aplikasi kamera (rentang kamera Android 16 tidak diubah).
+FW_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0002-per-app-refresh-rate.patch"
+SET_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/settings/0001-per-app-refresh-rate.patch"
+apply_tree_patch() {
+    local dir="$1" patch="$2" marker="$3" name="$4"
+    [ -f "$patch" ] && [ -f "$dir/$marker" ] || return 0
+    git -C "$dir" apply --check -R "$patch" 2>/dev/null && return 0   # sudah terpasang
+    if ! git -C "$dir" apply "$patch" 2>/dev/null; then
+        reset_patch_files "$dir" "$patch"
+        git -C "$dir" apply "$patch" 2>/dev/null || {
+            err "Tambalan $name tidak cocok lagi (source AxionOS berubah), dilewati"
+            return 0
+        }
+    fi
+    info "Tambalan: $name"
+}
+fix_per_app_refresh_rate() {
+    apply_tree_patch frameworks/base "$FW_PERAPP_PATCH" \
+        services/core/java/com/android/server/wm/RefreshRatePolicy.java \
+        "refresh rate per aplikasi (framework)"
+    apply_tree_patch packages/apps/Settings "$SET_PERAPP_PATCH" \
+        res/xml/display_settings.xml "refresh rate per aplikasi (Settings)"
+}
+
 unpatch_source() {
     if [ -f "$PI_PATCH" ] && git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then
         git -C frameworks/base apply -R "$PI_PATCH" || true
     fi
     git -C vendor/gms checkout -q -- '*.mk' 2>/dev/null || true
+    if [ -f "$FW_PERAPP_PATCH" ] && git -C frameworks/base apply --check -R "$FW_PERAPP_PATCH" 2>/dev/null; then
+        git -C frameworks/base apply -R "$FW_PERAPP_PATCH" || true
+    fi
+    if [ -f "$SET_PERAPP_PATCH" ] && git -C packages/apps/Settings apply --check -R "$SET_PERAPP_PATCH" 2>/dev/null; then
+        git -C packages/apps/Settings apply -R "$SET_PERAPP_PATCH" || true
+    fi
     if [ -f "$L3_PATCH" ] && [ -d "$L3_DIR/.git" -o -f "$L3_DIR/.git" ]; then
         if git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
             git -C "$L3_DIR" apply -R "$L3_PATCH" || true
@@ -303,6 +336,7 @@ patch_source() {
     fix_gamekey
     fix_launcher3_bubble
     fix_package_installer
+    fix_per_app_refresh_rate
 }
 
 # ------------------------------------------------------------------ sync
