@@ -293,14 +293,24 @@ fix_api_lint_baseline() {
     printf 'UnflaggedApi: android.R.font:\n    New API must be flagged with @FlaggedApi: class android.R.font\n' >> "$f"
     info "Tambalan: baseline API lint untuk android.R.font"
 }
+# Pengecekan API (check current API): R.font ada di hasil build tapi belum di current.txt.
+fix_api_current() {
+    local f=frameworks/base/core/api/current.txt
+    [ -f "$f" ] || return 0
+    grep -q '^  public static final class R.font {' "$f" && return 0
+    grep -q '^  public static final class R.fraction {' "$f" || return 0
+    awk '/^  public static final class R.fraction \{/ && !d { print "  public static final class R.font {"; print "    ctor public R.font();"; print "  }"; print ""; d=1 } { print }' "$f" > "$f.new" && mv "$f.new" "$f"
+    info "Tambalan: current.txt dilengkapi android.R.font"
+}
 unpatch_source() {
-    git -C frameworks/base checkout -q -- core/api/lint-baseline.txt 2>/dev/null || true
+    git -C frameworks/base checkout -q -- core/api/lint-baseline.txt core/api/current.txt 2>/dev/null || true
     unpatch_per_app_refresh_rate
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
 }
 patch_source() {
     fix_api_lint_baseline
+    fix_api_current
     fix_per_app_refresh_rate
     fix_dolby_vision
     fix_gamekey
