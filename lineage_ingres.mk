@@ -11,15 +11,13 @@ TARGET_DECRYPTED_DATA ?= true
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
-# Inherit from common lineage configuration
-# PixelOS
-TARGET_DISABLE_EPPE := true
+# DerpFest 17 (berbasis LineageOS 24.0). GApps (Pixel GMS) sudah dibawa vendor/lineage DerpFest.
 TARGET_SCREEN_WIDTH := 1080
 TARGET_SCREEN_HEIGHT := 2400
 TARGET_BOOT_ANIMATION_RESOLUTION := 1080
-$(call inherit-product, vendor/custom/config/common_full_phone.mk)
+$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
 
-PRODUCT_NAME := custom_ingres
+PRODUCT_NAME := lineage_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi

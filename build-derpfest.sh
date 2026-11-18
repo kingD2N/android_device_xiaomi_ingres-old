@@ -1,35 +1,36 @@
 #!/usr/bin/env bash
 #
-# Build LineageOS 24 (Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build DerpFest (17, Android 17) untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-ingres.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-ingres.sh sync       # hanya sync source
-#   bash build-ingres.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-ingres.sh status     # lihat progres build yang sedang jalan
-#   bash build-ingres.sh upload     # upload ulang isi ~/hasil-los24 ke GoFile
-#   bash build-ingres.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-ingres.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-ingres.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-derpfest.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-derpfest.sh sync       # hanya sync source
+#   bash build-derpfest.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-derpfest.sh status     # lihat progres build yang sedang jalan
+#   bash build-derpfest.sh upload     # upload ulang isi ~/hasil-derpfest ke GoFile
+#   bash build-derpfest.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-derpfest.sh bersih ~/aospa   # hapus source ROM lain / folder lama
+#   bash build-derpfest.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-ingres.sh):
-#   SRC=~/los24        folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-derpfest.sh):
+#   SRC=~/derpfest      folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
+#   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
 
 set -uo pipefail
 
-ROM=los24
-ROM_NAME="LineageOS 24"
-ROM_MANIFEST="https://github.com/LineageOS/android"; ROM_BRANCH="lineage-24.0"
-SRC="${SRC:-$HOME/los24}"
+ROM=derpfest
+ROM_NAME="DerpFest 17"
+ROM_MANIFEST="https://github.com/DerpFest-AOSP/android_manifest"; ROM_BRANCH="17"
+SRC="${SRC:-$HOME/derpfest}"
 VARIANT="${VARIANT:-user}"
-SESSION="los24"
-LOG="$HOME/build.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/lineage-24.0/local_manifests/ingres.xml"
-HASIL_DIR="$HOME/hasil-los24"
+SESSION="derpfest"
+LOG="$HOME/build-derpfest.log"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/derpfest-17/local_manifests/derpfest.xml"
+HASIL_DIR="$HOME/hasil-derpfest"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -60,7 +61,10 @@ if [ "$CMD" = "bersih" ]; then
     du -sh "$HOME"/* "$HOME"/.ccache "$HOME"/.cache 2>/dev/null | sort -rh | head -n 15
     echo
     targets=""
-    for d in "$HOME/lunaris" "$HOME/hasil-lunaris" "$HOME/build-lunaris.log" "$HOME/.ccache" "$@"; do
+    # folder hasil-* (zip ROM jadi) tidak dihapus otomatis; sebut sendiri kalau mau dihapus
+    for d in "$HOME/los24" "$HOME/lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
+             "$HOME/uwu" "$HOME/infinity" "$HOME/ascp" "$HOME/aospa" "$HOME/axion" "$HOME/penguin" "$HOME/evox" \
+             "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
             "$(readlink -f "$HOME")"|"$(readlink -f "$SRC")"|"$SCRIPT") echo "Lewati $d (tidak boleh dihapus)"; continue ;;
@@ -76,7 +80,7 @@ if [ "$CMD" = "bersih" ]; then
     echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris; do
+    for s in los24 aospa lunaris uwu infinity ascp evox pixelos derpfest; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -95,7 +99,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -116,6 +120,11 @@ check_tools() {
     [ -z "$miss" ] || { err "Alat belum terpasang di server:$miss (minta pemilik server memasangnya)"; exit 1; }
     git config --global user.name >/dev/null || git config --global user.name "kingD2N"
     git config --global user.email >/dev/null || git config --global user.email "114895723+kingD2N@users.noreply.github.com"
+    # Kalau ~/.gitconfig tidak terbaca (profil server), repo init gagal "Committer identity unknown".
+    # Variabel ini selalu dipakai git, apa pun isi config-nya.
+    export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-$(git config --global user.name 2>/dev/null || echo kingD2N)}"
+    export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-$(git config --global user.email 2>/dev/null || echo 114895723+kingD2N@users.noreply.github.com)}"
+    export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-$GIT_AUTHOR_NAME}" GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-$GIT_AUTHOR_EMAIL}"
     git lfs install >/dev/null 2>&1 || true
     CCACHE_EXEC="$(command -v ccache)"
     export USE_CCACHE=1 CCACHE_EXEC CCACHE_DIR="${CCACHE_DIR:-$HOME/.ccache}"
@@ -146,7 +155,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/derpfest-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -159,7 +168,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/los24-sisa-lama"
+    local known d bak="$HOME/derpfest-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -216,6 +225,9 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# Catatan: tambalan gestur Launcher3 dan PackageInstaller Lunaris (ROM lain) belum cocok dengan
+# DerpLauncher / frameworks DerpFest 17, jadi tidak dipasang di sini.
+
 unpatch_source() {
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
@@ -254,9 +266,9 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != ingres.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != derpfest.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/ingres.xml "$MANIFEST_URL" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/derpfest.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -268,7 +280,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-los24.log"
+    local n slog="$HOME/sync-derpfest.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -329,7 +341,13 @@ do_build() {
     move_leftovers
     patch_source
     fix_kernel_headers
-    info "Varian build: $VARIANT"
+    local variant_list v
+    case "$VARIANT" in
+        both|2|semua) variant_list="user userdebug" ;;
+        user|userdebug|eng) variant_list="$VARIANT" ;;
+        *) err "VARIANT tidak dikenal: $VARIANT (pakai: user | userdebug | eng | both)"; exit 1 ;;
+    esac
+    info "Varian build: $variant_list"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
     local start rc
@@ -337,10 +355,35 @@ do_build() {
     info "ROM: $ROM_NAME"
     # shellcheck disable=SC1091
     source build/envsetup.sh >/dev/null
-    breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal (cek local manifest / sync)"; exit 1; }
-    m bacon -j"$jobs" 2>&1 | tee "$LOG"
+    mkdir -p "$HASIL_DIR"
+    for v in $variant_list; do
+        build_rom "$jobs" "$v"
+    done
+    echo "Durasi total: $(( ($(date +%s) - start) / 60 )) menit"
+    ok "BUILD BERHASIL"
+    ls -lh "$HASIL_DIR"
+    if [ "${GOFILE:-1}" != 0 ]; then
+        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
+    else
+        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
+    fi
+}
+
+# Build ROM: $1 = jumlah job, $2 = user / userdebug / eng (DerpFest selalu membawa GApps)
+build_rom() {
+    local jobs="$1" variant="$2" rc vstart name="DerpFest $2"
+    vstart=$(date +%s)
+    info "Build $name"
+    lunch "lineage_ingres-cp2a-$variant" || { err "lunch lineage_ingres-cp2a-$variant gagal (cek local manifest / sync)"; exit 1; }
+    # user <-> userdebug: file varian lama masih tertinggal di out/ -> installclean saat berganti
+    if [ -f .variant-ingres ] && [ "$(cat .variant-ingres)" != "$variant" ]; then
+        info "Varian berganti ($(cat .variant-ingres) -> $variant): installclean dulu"
+        m installclean >/dev/null 2>&1 || true
+    fi
+    echo "$variant" > .variant-ingres
+    m derp -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
-    echo "Durasi: $(( ($(date +%s) - start) / 60 )) menit"
+    echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
 
     if [ "$rc" -ne 0 ]; then
         err "Build gagal. Ini penyebabnya (kirim screenshot bagian ini):"
@@ -355,23 +398,24 @@ do_build() {
             grep -n -A30 'Traceback (most recent call last)' "$LOG" | tail -n 40
         fi
         echo "------------------------------------------------------------"
-        echo "Setelah source ditambal, lanjutkan dengan: bash $SCRIPT"
+        echo "Setelah source ditambal, lanjutkan dengan: bash $SCRIPT build"
         exit 1
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/lineage-24.0-*-ingres.zip 2>/dev/null | head -n 1)
+    zip=$(ls -t "$p"/DerpFest-*ingres*.zip 2>/dev/null | grep -v target_files | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    mkdir -p "$HASIL_DIR"
-    cp "$zip" $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-    (cd "$HASIL_DIR" && sha256sum "$(basename "$zip")" > "$(basename "$zip").sha256")
-    ok "BUILD BERHASIL"
-    ls -lh "$HASIL_DIR"
-    if [ "${GOFILE:-1}" != 0 ]; then
-        do_upload || echo "Upload GoFile gagal. Ulangi dengan: bash $SCRIPT upload"
-    else
-        echo "Ambil file di folder $HASIL_DIR lewat SFTP Termius."
-    fi
+    # nama zip/img user dan userdebug bisa sama -> selain user diberi akhiran varian
+    local sfx="" out img
+    [ "$variant" = user ] || sfx="-$variant"
+    out="$(basename "$zip")"
+    case "$out" in *"$variant"*|*"${variant^^}"*) ;; *) out="${out%.zip}$sfx.zip" ;; esac
+    cp "$zip" "$HASIL_DIR/$out" || { err "Gagal menyalin zip ke $HASIL_DIR"; exit 1; }
+    for img in boot dtbo vendor_boot recovery; do
+        [ -f "$p/$img.img" ] && cp "$p/$img.img" "$HASIL_DIR/$img$sfx.img"
+    done
+    (cd "$HASIL_DIR" && sha256sum "$out" > "$out.sha256")
+    ok "Selesai: $out"
 }
 
 # ------------------------------------------------------------- GoFile
