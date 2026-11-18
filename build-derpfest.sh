@@ -282,12 +282,25 @@ unpatch_per_app_refresh_rate() {
     fi
 }
 
+# API lint (metalava): resource font di framework-res terbaca sebagai API baru tanpa
+# @FlaggedApi ("class android.R.font [UnflaggedApi]"), api-stubs-docs-non-updatable gagal.
+# Daftarkan ke baseline lint lokal supaya build lanjut (tidak mengubah isi ROM).
+fix_api_lint_baseline() {
+    local f=frameworks/base/core/api/lint-baseline.txt
+    [ -f "$f" ] || return 0
+    grep -q '^UnflaggedApi: android.R.font:' "$f" && return 0
+    [ -n "$(tail -c1 "$f")" ] && echo >> "$f"
+    printf 'UnflaggedApi: android.R.font:\n    New API must be flagged with @FlaggedApi: class android.R.font\n' >> "$f"
+    info "Tambalan: baseline API lint untuk android.R.font"
+}
 unpatch_source() {
+    git -C frameworks/base checkout -q -- core/api/lint-baseline.txt 2>/dev/null || true
     unpatch_per_app_refresh_rate
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
 }
 patch_source() {
+    fix_api_lint_baseline
     fix_per_app_refresh_rate
     fix_dolby_vision
     fix_gamekey
