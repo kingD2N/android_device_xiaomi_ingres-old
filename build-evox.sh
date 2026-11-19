@@ -246,7 +246,8 @@ fix_launcher3_freeform() {
 # Build GApps EvoX memasang Pixel Launcher (APK prebuilt) yang menimpa Launcher3,
 # jadi fitur Launcher3 di atas tidak ikut. Default: Pixel Launcher dibuang dan
 # overlay Pixel (recents/home) diarahkan balik ke Launcher3. PIXEL_LAUNCHER=1 = tetap.
-PIXEL_OVERLAY=vendor/pixel-style/rro_overlays/PixelConfigOverlayCommon/res/values/strings.xml
+# 18/11/2026: overlay diganti nama jadi PixelConfigOverlayCommonGMS; dukung dua-duanya
+PIXEL_OVERLAYS="vendor/pixel-style/rro_overlays/PixelConfigOverlayCommonGMS/res/values/strings.xml vendor/pixel-style/rro_overlays/PixelConfigOverlayCommon/res/values/strings.xml"
 fix_pixel_launcher() {
     [ "${PIXEL_LAUNCHER:-0}" = 1 ] && return 0
     [ -d vendor/gms ] || return 0
@@ -258,13 +259,17 @@ fix_pixel_launcher() {
             changed=1
         fi
     done
-    if [ -f "$PIXEL_OVERLAY" ] && grep -q 'apps.nexuslauncher/com.android.quickstep' "$PIXEL_OVERLAY"; then
-        sed -i \
-            -e 's|"config_recentsComponentName">com.google.android.apps.nexuslauncher/|"config_recentsComponentName">com.android.launcher3/|' \
-            -e 's|"config_secondaryHomePackage">com.google.android.apps.nexuslauncher<|"config_secondaryHomePackage">com.android.launcher3<|' \
-            "$PIXEL_OVERLAY"
-        changed=1
-    fi
+    local ov
+    for ov in $PIXEL_OVERLAYS; do
+        [ -f "$ov" ] || continue
+        if grep -q 'apps.nexuslauncher/com.android.quickstep' "$ov"; then
+            sed -i \
+                -e 's|"config_recentsComponentName">com.google.android.apps.nexuslauncher/|"config_recentsComponentName">com.android.launcher3/|' \
+                -e 's|"config_secondaryHomePackage">com.google.android.apps.nexuslauncher<|"config_secondaryHomePackage">com.android.launcher3<|' \
+                "$ov"
+            changed=1
+        fi
+    done
     [ $changed = 1 ] && info "Tambalan: Pixel Launcher dibuang, GApps pakai Launcher3 (PIXEL_LAUNCHER=1 untuk tetap)"
     return 0
 }
@@ -331,7 +336,7 @@ unpatch_source() {
         git -C frameworks/base apply -R "$PI_PATCH" || true
     fi
     git -C vendor/gms checkout -q -- 'gms*.mk' product/packages/privileged_apps/AmbientStreaming 2>/dev/null || true
-    git -C vendor/pixel-style checkout -q -- rro_overlays/PixelConfigOverlayCommon 2>/dev/null || true
+    git -C vendor/pixel-style checkout -q -- 'rro_overlays/PixelConfigOverlayCommon*' 2>/dev/null || true
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
