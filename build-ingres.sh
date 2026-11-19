@@ -246,14 +246,49 @@ want_gms() { [ "${GAPPS:-1}" != 0 ] && [ "${GAPPS:-1}" != vanilla ]; }
 
 # Pixel Launcher di vendor_gms butuh overlay Pixel (recents) yang tidak ada di LineageOS,
 # jadi selalu dibuang: layar utama tetap Trebuchet dengan fitur geser-ke-gelembung.
+# Selain itu, overlay apa pun di vendor_gms yang mengarahkan recents/home ke Pixel Launcher
+# ikut diarahkan balik ke Launcher3 (dicari dari ISI file, bukan nama folder, karena
+# vendor_gms bisa mengganti nama/struktur tanpa kabar). Kalau recents menunjuk ke aplikasi
+# yang sudah dibuang, Trebuchet crash terus dan aplikasi tidak bisa dibuka.
+GMS_SCAN_DIRS="vendor/gms vendor/pixel-style vendor/evolution"
+GMS_RECENTS_RE='name="config_(recentsComponentName|secondaryHomePackage)">com\.google\.android\.apps\.nexuslauncher'
+GMS_NEXUS_RE='^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$'
+# file xml yang masih mengarahkan recents/home ke Pixel Launcher
+gms_launcher_refs() {
+    local d dirs=""
+    for d in $GMS_SCAN_DIRS; do [ -d "$d" ] && dirs="$dirs $d"; done
+    [ -n "$dirs" ] || return 0
+    grep -rlIE --include='*.xml' "$GMS_RECENTS_RE" $dirs 2>/dev/null || true
+}
 fix_gms_launcher() {
     local f
     for f in vendor/gms/gms*.mk; do
         [ -f "$f" ] || continue
-        grep -q '^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$' "$f" || continue
-        sed -i '/^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$/d' "$f"
+        grep -q "$GMS_NEXUS_RE" "$f" || continue
+        sed -i "/$GMS_NEXUS_RE/d" "$f"
         info "Tambalan: Pixel Launcher dibuang dari GApps (tetap Trebuchet)"
     done
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        sed -i \
+            -e 's|\(name="config_recentsComponentName">\)com\.google\.android\.apps\.nexuslauncher/|\1com.android.launcher3/|' \
+            -e 's|\(name="config_secondaryHomePackage">\)com\.google\.android\.apps\.nexuslauncher<|\1com.android.launcher3<|' \
+            "$f"
+        info "Tambalan: recents/home di $f diarahkan ke Launcher3"
+    done < <(gms_launcher_refs)
+    return 0
+}
+# Pengaman: kalau setelah ditambal recents/home masih menunjuk ke Pixel Launcher, ROM-nya
+# pasti bermasalah di launcher. Lebih baik berhenti di sini daripada build berjam-jam.
+verify_gms_launcher() {
+    local left
+    left=$(gms_launcher_refs)
+    if [ -n "$left" ]; then
+        err "Recents/home masih menunjuk ke Pixel Launcher setelah ditambal:"
+        echo "$left" | sed 's/^/   /' >&2
+        err "Trebuchet akan crash. Perbaiki fix_gms_launcher (struktur vendor_gms berubah)."
+        return 1
+    fi
     return 0
 }
 
@@ -375,6 +410,10 @@ unpatch_source() {
     fi
     git -C "$PI_GMS_DIR" checkout -q -- . 2>/dev/null || true
     git -C vendor/gms checkout -q -- . 2>/dev/null || true
+    local d
+    for d in vendor/pixel-style vendor/evolution; do
+        git -C "$d" checkout -q -- '*.xml' 2>/dev/null || true
+    done
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
@@ -468,6 +507,7 @@ do_sync() {
     restore_leftovers
     move_leftovers
     patch_source
+    verify_gms_launcher || err "Periksa tambalan launcher sebelum build"
     ok "Source siap di $SRC"
 }
 
@@ -499,6 +539,7 @@ do_build() {
     restore_leftovers
     move_leftovers
     patch_source
+    verify_gms_launcher || exit 1
     fix_kernel_headers
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
