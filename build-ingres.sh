@@ -424,7 +424,7 @@ patch_source() {
     fix_per_app_refresh_rate
     fix_dolby_vision
     fix_gamekey
-    fix_launcher3_bubble
+    # fix_launcher3_bubble  # dimatikan: gestur gelembung hanya dipasang di AxionOS, EvoX, RROS
     fix_package_installer
     fix_gms_launcher
     fix_gms_lfs
