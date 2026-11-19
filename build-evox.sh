@@ -358,7 +358,101 @@ drop_google_installer() {
     return 0
 }
 
+# FPS per aplikasi: Pengaturan > Tampilan > "Refresh rate per aplikasi".
+# Framework (RefreshRatePolicy + PerAppRefreshRateStore) membaca Settings.System per_app_refresh_rate
+# ("paket=rate,paket=rate"); app Settings menyediakan layar pemilihannya. Rate pilihan diabaikan
+# untuk aplikasi kamera. ROM yang sudah punya fitur serupa sendiri tidak ditambal.
+# Patch Settings dipasang tanpa display_settings.xml: urutan item di berkas itu beda di tiap ROM
+# (EvoX mengomentari peak_refresh_rate), jadi entri menunya disisipkan oleh skrip dengan jangkar
+# show_operator_name / display_cutout_emulation, bukan lewat konteks patch.
+FW_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0002-per-app-refresh-rate.patch"
+SET_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/settings/0001-per-app-refresh-rate.patch"
+SET_DIR=packages/apps/Settings
+SET_DISPLAY_XML="$SET_DIR/res/xml/display_settings.xml"
+# Kembalikan berkas yang disentuh sebuah tambalan ke kondisi repo (berkas baru dihapus).
+reset_patch_files() {
+    local dir="$1" patch="$2" f
+    while IFS= read -r f; do
+        if git -C "$dir" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+            git -C "$dir" checkout -q -- "$f" 2>/dev/null || true
+        else
+            rm -f "$dir/$f"
+        fi
+    done < <(sed -n 's#^diff --git a/\(.*\) b/.*#\1#p' "$patch")
+}
+apply_tree_patch() {
+    local dir="$1" patch="$2" marker="$3" name="$4"
+    [ -f "$patch" ] && [ -f "$dir/$marker" ] || return 0
+    git -C "$dir" apply --check -R "$patch" 2>/dev/null && return 0   # sudah terpasang
+    if ! git -C "$dir" apply "$patch" 2>/dev/null; then
+        reset_patch_files "$dir" "$patch"
+        git -C "$dir" apply "$patch" 2>/dev/null || {
+            err "Tambalan $name tidak cocok lagi (source ROM berubah), dilewati"
+            return 0
+        }
+    fi
+    info "Tambalan: $name"
+}
+# Sisipkan entri menu sebelum item jangkar. Gagal (return 1) kalau jangkarnya tidak ada.
+insert_perapp_entry() {
+    local xml="$SET_DISPLAY_XML" anchor k start ind
+    grep -q 'android:key="per_app_refresh_rate"' "$xml" && return 0
+    k=""
+    for anchor in show_operator_name display_cutout_emulation; do
+        k=$(grep -n "android:key=\"$anchor\"" "$xml" | head -1 | cut -d: -f1)
+        [ -n "$k" ] && break
+    done
+    [ -n "$k" ] || return 1
+    start=$((k - 1))
+    sed -n "${start}p" "$xml" | grep -q '^[[:space:]]*<[A-Za-z]' || return 1   # elemen pembuka item jangkar
+    ind=$(sed -n "${start}p" "$xml" | sed 's/[^[:space:]].*//')
+    awk -v s="$start" -v ind="$ind" '
+        NR == s {
+            print ind "<Preference"
+            print ind "    android:key=\"per_app_refresh_rate\""
+            print ind "    android:title=\"@string/per_app_refresh_rate_title\""
+            print ind "    android:summary=\"@string/per_app_refresh_rate_entry_summary\""
+            print ind "    android:fragment=\"com.android.settings.display.PerAppRefreshRateFragment\"/>"
+            print ""
+        }
+        { print }' "$xml" > "$xml.new" && mv -f "$xml.new" "$xml"
+}
+apply_perapp_settings() {
+    local ex=--exclude=res/xml/display_settings.xml
+    if ! git -C "$SET_DIR" apply "$ex" --check -R "$SET_PERAPP_PATCH" 2>/dev/null; then   # belum terpasang
+        if ! git -C "$SET_DIR" apply "$ex" "$SET_PERAPP_PATCH" 2>/dev/null; then
+            reset_patch_files "$SET_DIR" "$SET_PERAPP_PATCH"
+            git -C "$SET_DIR" apply "$ex" "$SET_PERAPP_PATCH" 2>/dev/null || return 1
+        fi
+    fi
+    insert_perapp_entry
+}
+fix_per_app_refresh_rate() {
+    [ -f "$FW_PERAPP_PATCH" ] && [ -f "$SET_PERAPP_PATCH" ] && [ -f "$SET_DISPLAY_XML" ] || return 0
+    if [ ! -f "$SET_DIR/src/com/android/settings/display/PerAppRefreshRateFragment.java" ] \
+        && grep -rqsiE 'key="[a-z_]*(per_app_refresh|app_refresh_rate|screen_refresh_rate)[a-z_]*"' \
+            "$SET_DIR/res/xml" 2>/dev/null; then
+        info "FPS per aplikasi: ROM ini sudah punya sendiri, tambalan dilewati"
+        return 0
+    fi
+    apply_tree_patch frameworks/base "$FW_PERAPP_PATCH" \
+        services/core/java/com/android/server/wm/RefreshRatePolicy.java \
+        "refresh rate per aplikasi (framework)"
+    if apply_perapp_settings; then
+        info "Tambalan: refresh rate per aplikasi (Settings)"
+    else
+        err "Tambalan refresh rate per aplikasi (Settings) tidak cocok lagi (source ROM berubah), dilewati"
+    fi
+    return 0
+}
+unpatch_per_app_refresh_rate() {
+    [ -f "$FW_PERAPP_PATCH" ] && reset_patch_files frameworks/base "$FW_PERAPP_PATCH"
+    [ -f "$SET_PERAPP_PATCH" ] && reset_patch_files "$SET_DIR" "$SET_PERAPP_PATCH"
+    return 0
+}
+
 unpatch_source() {
+    unpatch_per_app_refresh_rate
     if [ -f "$PI_PATCH" ] && git -C frameworks/base apply --check -R "$PI_PATCH" 2>/dev/null; then
         git -C frameworks/base apply -R "$PI_PATCH" || true
     fi
@@ -379,6 +473,7 @@ patch_source() {
     fix_launcher3_freeform
     fix_package_installer
     fix_pixel_launcher
+    fix_per_app_refresh_rate
     fix_ambient_streaming
 }
 
