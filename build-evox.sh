@@ -246,31 +246,58 @@ fix_launcher3_freeform() {
 # Build GApps EvoX memasang Pixel Launcher (APK prebuilt) yang menimpa Launcher3,
 # jadi fitur Launcher3 di atas tidak ikut. Default: Pixel Launcher dibuang dan
 # overlay Pixel (recents/home) diarahkan balik ke Launcher3. PIXEL_LAUNCHER=1 = tetap.
-# 18/11/2026: overlay diganti nama jadi PixelConfigOverlayCommonGMS; dukung dua-duanya
-PIXEL_OVERLAYS="vendor/pixel-style/rro_overlays/PixelConfigOverlayCommonGMS/res/values/strings.xml vendor/pixel-style/rro_overlays/PixelConfigOverlayCommon/res/values/strings.xml"
+# Overlay dicari dari ISI-nya, bukan dari nama foldernya: EvoX pernah mengganti nama
+# PixelConfigOverlayCommon jadi PixelConfigOverlayCommonGMS tanpa kabar, tambalan diam-diam
+# tidak kena, dan Launcher3 crash terus karena recents menunjuk ke Pixel Launcher yang dibuang.
+PIXEL_SCAN_DIRS="vendor/pixel-style vendor/gms vendor/evolution"
+PIXEL_RECENTS_RE='name="config_(recentsComponentName|secondaryHomePackage)">com\.google\.android\.apps\.nexuslauncher'
+GMS_NEXUS_RE='^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$'
+# file xml yang masih mengarahkan recents/home ke Pixel Launcher
+pixel_launcher_refs() {
+    local d dirs=""
+    for d in $PIXEL_SCAN_DIRS; do [ -d "$d" ] && dirs="$dirs $d"; done
+    [ -n "$dirs" ] || return 0
+    grep -rlIE --include='*.xml' "$PIXEL_RECENTS_RE" $dirs 2>/dev/null || true
+}
 fix_pixel_launcher() {
     [ "${PIXEL_LAUNCHER:-0}" = 1 ] && return 0
     [ -d vendor/gms ] || return 0
     local f changed=0
     for f in vendor/gms/gms*.mk; do
         [ -f "$f" ] || continue
-        if grep -q '^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$' "$f"; then
-            sed -i '/^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$/d' "$f"
+        if grep -q "$GMS_NEXUS_RE" "$f"; then
+            sed -i "/$GMS_NEXUS_RE/d" "$f"
             changed=1
         fi
     done
-    local ov
-    for ov in $PIXEL_OVERLAYS; do
-        [ -f "$ov" ] || continue
-        if grep -q 'apps.nexuslauncher/com.android.quickstep' "$ov"; then
-            sed -i \
-                -e 's|"config_recentsComponentName">com.google.android.apps.nexuslauncher/|"config_recentsComponentName">com.android.launcher3/|' \
-                -e 's|"config_secondaryHomePackage">com.google.android.apps.nexuslauncher<|"config_secondaryHomePackage">com.android.launcher3<|' \
-                "$ov"
-            changed=1
-        fi
-    done
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        sed -i \
+            -e 's|\(name="config_recentsComponentName">\)com\.google\.android\.apps\.nexuslauncher/|\1com.android.launcher3/|' \
+            -e 's|\(name="config_secondaryHomePackage">\)com\.google\.android\.apps\.nexuslauncher<|\1com.android.launcher3<|' \
+            "$f"
+        changed=1
+    done < <(pixel_launcher_refs)
     [ $changed = 1 ] && info "Tambalan: Pixel Launcher dibuang, GApps pakai Launcher3 (PIXEL_LAUNCHER=1 untuk tetap)"
+    return 0
+}
+# Pengaman: kalau setelah ditambal recents/home masih menunjuk ke Pixel Launcher, ROM-nya
+# pasti bermasalah di launcher. Lebih baik berhenti di sini daripada build berjam-jam.
+verify_launcher_overlay() {
+    [ "${PIXEL_LAUNCHER:-0}" = 1 ] && return 0
+    [ -d vendor/gms ] || return 0
+    local left f
+    left=$(pixel_launcher_refs)
+    if [ -n "$left" ]; then
+        err "Recents/home masih menunjuk ke Pixel Launcher setelah ditambal:"
+        echo "$left" | sed 's/^/   /' >&2
+        err "Launcher3 akan crash. Perbaiki fix_pixel_launcher (struktur overlay EvoX berubah) atau build dengan PIXEL_LAUNCHER=1."
+        return 1
+    fi
+    for f in vendor/gms/gms*.mk; do
+        [ -f "$f" ] || continue
+        grep -q "$GMS_NEXUS_RE" "$f" && info "Peringatan: $f masih memasang NexusLauncherRelease (Pixel Launcher ikut terpasang)"
+    done
     return 0
 }
 
@@ -336,7 +363,10 @@ unpatch_source() {
         git -C frameworks/base apply -R "$PI_PATCH" || true
     fi
     git -C vendor/gms checkout -q -- 'gms*.mk' product/packages/privileged_apps/AmbientStreaming 2>/dev/null || true
-    git -C vendor/pixel-style checkout -q -- 'rro_overlays/PixelConfigOverlayCommon*' 2>/dev/null || true
+    local d
+    for d in $PIXEL_SCAN_DIRS; do
+        git -C "$d" checkout -q -- '*.xml' 2>/dev/null || true
+    done
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
@@ -424,6 +454,7 @@ do_sync() {
     restore_leftovers
     move_leftovers
     patch_source
+    verify_launcher_overlay || err "Periksa tambalan launcher sebelum build"
     ok "Source siap di $SRC"
 }
 
@@ -455,6 +486,7 @@ do_build() {
     restore_leftovers
     move_leftovers
     patch_source
+    verify_launcher_overlay || exit 1
     fix_kernel_headers
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
