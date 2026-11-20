@@ -215,13 +215,48 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
+# Launcher3 Lunaris: gestur "geser ke atas dari aplikasi" bawaan (Setelan Launcher > Recents >
+# Gestur) mendapat aksi ketiga "Gelembung aplikasi" selain Freeform dan Layar terpisah.
+# Pilih aksinya di pengaturan itu, lalu geser ke atas melewati batas (ada getar) dan lepas
+# -> aplikasi dibuka sebagai gelembung. Gaya Recents tidak disentuh. Patch disimpan di device tree.
+L3_DIR=packages/apps/Launcher3
+L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-overview-gesture-app-bubble.patch"
+# Kembalikan berkas yang disentuh sebuah tambalan ke kondisi repo (dipakai kalau versi
+# tambalan lama masih terpasang dan tidak cocok dengan tambalan baru).
+reset_patch_files() {
+    local dir="$1" patch="$2" f
+    while IFS= read -r f; do
+        if git -C "$dir" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
+            git -C "$dir" checkout -q -- "$f" 2>/dev/null || true
+        else
+            rm -f "$dir/$f"
+        fi
+    done < <(sed -n 's#^diff --git a/\(.*\) b/.*#\1#p' "$patch")
+}
+fix_launcher3_bubble() {
+    [ -f "$L3_PATCH" ] && [ -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ] || return 0
+    git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null && return 0   # sudah terpasang
+    if ! git -C "$L3_DIR" apply "$L3_PATCH" 2>/dev/null; then
+        reset_patch_files "$L3_DIR" "$L3_PATCH"
+        git -C "$L3_DIR" apply "$L3_PATCH" 2>/dev/null || {
+            err "Tambalan Launcher3 gelembung tidak cocok lagi (Launcher3 Lunaris berubah), dilewati"
+            return 0
+        }
+    fi
+    info "Tambalan: Launcher3 gestur geser ke atas -> aksi gelembung aplikasi"
+}
+
 unpatch_source() {
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust 2>/dev/null || true
+    if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
+        git -C "$L3_DIR" apply -R "$L3_PATCH" || true
+    fi
 }
 patch_source() {
     fix_dolby_vision
     fix_gamekey
+    fix_launcher3_bubble
 }
 
 # ------------------------------------------------------------------ sync
