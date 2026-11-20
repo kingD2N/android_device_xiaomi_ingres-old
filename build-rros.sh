@@ -306,6 +306,38 @@ fix_gms_launcher() {
     return 0
 }
 
+# Pengaman launcher (belajar dari EvoX): Launcher3 crash terus kalau recents/home menunjuk ke
+# Pixel Launcher padahal Pixel Launcher tidak ikut terpasang. Overlay dicari dari ISI-nya,
+# bukan dari nama foldernya, supaya perubahan nama di vendor_gms tidak lolos diam-diam.
+# Di RROS Pixel Launcher tidak dibuang (fix_gms_launcher tidak dipakai), jadi kombinasi itu
+# hanya muncul kalau vendor_gms berubah; lebih baik berhenti di sini daripada build berjam-jam.
+LAUNCHER_SCAN_DIRS="vendor/gms vendor/rr vendor/extras device/xiaomi"
+PIXEL_RECENTS_RE='name="config_(recentsComponentName|secondaryHomePackage)">com\.google\.android\.apps\.nexuslauncher'
+GMS_NEXUS_RE='^[[:space:]]*NexusLauncherRelease[[:space:]]*\\$'
+pixel_launcher_refs() {
+    local d dirs=""
+    for d in $LAUNCHER_SCAN_DIRS; do [ -d "$d" ] && dirs="$dirs $d"; done
+    [ -n "$dirs" ] || return 0
+    grep -rlIE --include='*.xml' "$PIXEL_RECENTS_RE" $dirs 2>/dev/null || true
+}
+verify_launcher_overlay() {
+    want_gms || return 0
+    [ -d vendor/gms ] || return 0
+    local refs f has_nexus=0
+    refs=$(pixel_launcher_refs)
+    for f in vendor/gms/gms*.mk; do
+        [ -f "$f" ] || continue
+        grep -q "$GMS_NEXUS_RE" "$f" && has_nexus=1
+    done
+    if [ -n "$refs" ] && [ "$has_nexus" = 0 ]; then
+        err "Recents/home menunjuk ke Pixel Launcher, tapi Pixel Launcher tidak ikut terpasang:"
+        echo "$refs" | sed 's/^/   /' >&2
+        err "Launcher3 akan crash. Periksa vendor_gms (NexusLauncherRelease hilang dari gms*.mk)."
+        return 1
+    fi
+    return 0
+}
+
 # APK yang tidak terdaftar di .gitattributes vendor_gms ter-checkout sebagai pointer LFS
 # (mis. AmbientStreaming): unduh isinya, kalau gagal keluarkan dari daftar paket.
 fix_gms_lfs() {
@@ -391,7 +423,7 @@ patch_source() {
     fix_launcher3_bubble
     fix_per_app_refresh_rate
     fix_package_installer
-    # (Buang Pixel Launcher belum dipakai di RROS: Launcher3 RROS berbeda dari LineageOS, belum diuji)
+    # (fix_gms_launcher sengaja tidak dipanggil: Pixel Launcher dibiarkan; lihat verify_launcher_overlay)
 }
 
 # ------------------------------------------------------------------ sync
@@ -470,6 +502,7 @@ do_sync() {
     restore_leftovers
     move_leftovers
     patch_source
+    verify_launcher_overlay || err "Periksa launcher/vendor_gms sebelum build"
     ok "Source siap di $SRC"
 }
 
@@ -501,6 +534,7 @@ do_build() {
     restore_leftovers
     move_leftovers
     patch_source
+    verify_launcher_overlay || exit 1
     fix_kernel_headers
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
