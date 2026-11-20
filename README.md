@@ -65,7 +65,7 @@ dan otomatis diupload ke GoFile (matikan dengan `GOFILE=0`).
 Manual:
 
 ```bash
-repo init --repo-url=https://github.com/UwUniverse/git-repo.git --repo-branch=main --no-repo-verify \
+repo init --repo-url=https://github.com/GerritCodeReview/git-repo.git --repo-branch=main --no-repo-verify \
   -u https://github.com/uwuAOSP/platform_manifests.git -b uwu-17.0 --git-lfs --no-clone-bundle
 mkdir -p .repo/local_manifests
 curl -L -o .repo/local_manifests/uwu.xml \
