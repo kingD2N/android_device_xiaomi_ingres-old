@@ -30,7 +30,7 @@ ROM=uwu
 ROM_NAME="uwuAOSP 17"
 ROM_MANIFEST="https://github.com/uwuAOSP/platform_manifests"; ROM_BRANCH="uwu-17.0"
 # fork repo uwuAOSP: fetch dangkal (--depth) yang terputus tidak mengunduh ulang seluruh history
-REPO_ARGS=(--repo-url=https://github.com/UwUniverse/git-repo.git --repo-branch=main --no-repo-verify)
+REPO_ARGS=(--repo-url=https://github.com/uwuAOSP/git-repo.git --repo-branch=main --no-repo-verify)
 SRC="${SRC:-$HOME/uwu}"
 VARIANT="${VARIANT:-user}"
 SESSION="uwu"
