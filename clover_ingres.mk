@@ -11,13 +11,14 @@ TARGET_DECRYPTED_DATA ?= true
 # Inherit from ingres device
 $(call inherit-product, device/xiaomi/ingres/device.mk)
 
-# DerpFest 17 (berbasis LineageOS 24.0). GApps (Pixel GMS) sudah dibawa vendor/lineage DerpFest.
+# The Clover Project 17 (AOSP android-17.0.0_r1 + beberapa komponen LineageOS 24.0).
+# GApps (Pixel GMS) dipasang vendor/clover; tanpa GApps: WITH_GMS=false (lihat build-clover.sh, GAPPS=0).
 TARGET_SCREEN_WIDTH := 1080
 TARGET_SCREEN_HEIGHT := 2400
 TARGET_BOOT_ANIMATION_RESOLUTION := 1080
-$(call inherit-product, vendor/lineage/config/common_full_phone.mk)
+$(call inherit-product, vendor/clover/config/common_full_phone.mk)
 
-PRODUCT_NAME := lineage_ingres
+PRODUCT_NAME := clover_ingres
 PRODUCT_DEVICE := ingres
 PRODUCT_MANUFACTURER := Xiaomi
 PRODUCT_BRAND := Redmi

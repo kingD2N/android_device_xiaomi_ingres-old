@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 #
-# Build DerpFest (17, Android 17) untuk POCO F4 GT (ingres) - satu perintah.
+# Build The Clover Project (17, Android 17, AOSP murni) untuk POCO F4 GT (ingres) - satu perintah.
 #
-#   bash build-derpfest.sh            # sync + build (otomatis jalan di byobu)
-#   bash build-derpfest.sh sync       # hanya sync source
-#   bash build-derpfest.sh build      # hanya build (lanjut dari build sebelumnya)
-#   bash build-derpfest.sh status     # lihat progres build yang sedang jalan
-#   bash build-derpfest.sh upload     # upload ulang isi ~/hasil-derpfest ke GoFile
-#   bash build-derpfest.sh clean      # hapus hasil build lama (out/) lalu berhenti
-#   bash build-derpfest.sh bersih ~/aospa   # hapus source ROM lain / folder lama
-#   bash build-derpfest.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
+#   bash build-clover.sh            # sync + build (otomatis jalan di byobu)
+#   bash build-clover.sh sync       # hanya sync source
+#   bash build-clover.sh build      # hanya build (lanjut dari build sebelumnya)
+#   bash build-clover.sh status     # lihat progres build yang sedang jalan
+#   bash build-clover.sh upload     # upload ulang isi ~/hasil-clover ke GoFile
+#   bash build-clover.sh clean      # hapus hasil build lama (out/) lalu berhenti
+#   bash build-clover.sh bersih ~/aospa   # hapus source ROM lain / folder lama
+#   bash build-clover.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
 #
-# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-derpfest.sh):
-#   SRC=~/derpfest      folder source
+# Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-clover.sh):
+#   SRC=~/clover       folder source
 #   JOBS=<angka>       jumlah job build (default: otomatis dari CPU & RAM)
 #   VARIANT=user       user (rilis, default) / userdebug / eng
+#   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps / Pixel GMS)
+#   CLOVER_MAINTAINER=nama  nama maintainer di info ROM (default: kingD2N)
 #   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
@@ -22,15 +24,15 @@
 
 set -uo pipefail
 
-ROM=derpfest
-ROM_NAME="DerpFest 17"
-ROM_MANIFEST="https://github.com/DerpFest-AOSP/android_manifest"; ROM_BRANCH="17"
-SRC="${SRC:-$HOME/derpfest}"
+ROM=clover
+ROM_NAME="The Clover Project 17"
+ROM_MANIFEST="https://github.com/The-Clover-Project/manifest"; ROM_BRANCH="17"
+SRC="${SRC:-$HOME/clover}"
 VARIANT="${VARIANT:-user}"
-SESSION="derpfest"
-LOG="$HOME/build-derpfest.log"
-MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/derpfest-17/local_manifests/derpfest.xml"
-HASIL_DIR="$HOME/hasil-derpfest"
+SESSION="clover"
+LOG="$HOME/build-clover.log"
+MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/clover-17/local_manifests/clover.xml"
+HASIL_DIR="$HOME/hasil-clover"
 SCRIPT="$(readlink -f "$0")"
 CMD="${1:-all}"
 
@@ -64,6 +66,7 @@ if [ "$CMD" = "bersih" ]; then
     # folder hasil-* (zip ROM jadi) tidak dihapus otomatis; sebut sendiri kalau mau dihapus
     for d in "$HOME/los24" "$HOME/lunaris" "$HOME/build-lunaris.log" "$HOME/lunaris-sisa-lama" \
              "$HOME/uwu" "$HOME/infinity" "$HOME/ascp" "$HOME/aospa" "$HOME/axion" "$HOME/penguin" "$HOME/evox" \
+             "$HOME/derpfest" "$HOME/pixelos" \
              "$HOME/.ccache" "$@"; do
         [ -e "$d" ] || continue
         case "$(readlink -f "$d")" in
@@ -80,7 +83,7 @@ if [ "$CMD" = "bersih" ]; then
     echo "Simpan dulu zip ROM lama (mis. ~/hasil-lunaris) lewat SFTP kalau masih perlu."
     read -r -p "Ketik YA lalu Enter untuk menghapus: " jawab
     [ "$jawab" = "YA" ] || { info "Batal, tidak ada yang dihapus."; exit 0; }
-    for s in los24 aospa lunaris uwu infinity ascp evox pixelos derpfest; do
+    for s in los24 aospa lunaris uwu infinity ascp evox pixelos derpfest clover; do
         [ "$s" = "$SESSION" ] && [ -n "${TMUX:-}" ] && continue
         byobu kill-session -t "$s" >/dev/null 2>&1 && info "Sesi byobu '$s' dihentikan"
     done
@@ -99,7 +102,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' CLOVER_MAINTAINER='${CLOVER_MAINTAINER:-kingD2N}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -155,7 +158,7 @@ manifest_paths() {
 
 # folder yang tercantum di manifest tapi sempat dipindah ke sisa-lama -> kembalikan
 restore_leftovers() {
-    local known d bak="$HOME/derpfest-sisa-lama"
+    local known d bak="$HOME/clover-sisa-lama"
     [ -d "$bak" ] || return 0
     known=$(manifest_paths)
     for d in $(cd "$bak" && find device vendor kernel hardware -mindepth 1 -maxdepth 2 -type d 2>/dev/null); do
@@ -168,7 +171,7 @@ restore_leftovers() {
 }
 
 move_leftovers() {
-    local known d bak="$HOME/derpfest-sisa-lama"
+    local known d bak="$HOME/clover-sisa-lama"
     known=$(manifest_paths)
     [ -n "$known" ] || return 0
     for d in device/xiaomi/* vendor/xiaomi/* kernel/xiaomi/* hardware/xiaomi*; do
@@ -225,93 +228,41 @@ fix_dolby_vision() {
     info "Tambalan: composer melaporkan Dolby Vision"
 }
 
-# Catatan: tambalan gestur Launcher3 dan PackageInstaller Lunaris (ROM lain) belum cocok dengan
-# DerpLauncher / frameworks DerpFest 17, jadi tidak dipasang di sini.
+# Catatan: tambalan ROM lain (gestur Launcher3, PackageInstaller Lunaris, FPS per aplikasi,
+# baseline API lint) belum diuji di frameworks Clover, jadi tidak dipasang di sini.
 
-# FPS per aplikasi: Pengaturan > Tampilan > "Refresh rate per aplikasi".
-# Framework (RefreshRatePolicy + PerAppRefreshRateStore) membaca Settings.System per_app_refresh_rate
-# ("paket=rate,paket=rate"); app Settings menyediakan layar pemilihannya. Rate pilihan diabaikan
-# untuk aplikasi kamera (rentang kamera Android 16 tidak diubah). ROM yang sudah punya fitur
-# serupa sendiri tidak ditambal.
-FW_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/frameworks_base/0002-per-app-refresh-rate.patch"
-SET_PERAPP_PATCH="$SRC/device/xiaomi/ingres/patches/settings/0001-per-app-refresh-rate.patch"
-# Kembalikan berkas yang disentuh sebuah tambalan ke kondisi repo (tambalan lama tidak bisa di-reverse).
-reset_patch_files() {
-    local dir="$1" patch="$2" f
-    while IFS= read -r f; do
-        if git -C "$dir" ls-files --error-unmatch -- "$f" >/dev/null 2>&1; then
-            git -C "$dir" checkout -q -- "$f" 2>/dev/null || true
-        else
-            rm -f "$dir/$f"
-        fi
-    done < <(sed -n 's#^diff --git a/\(.*\) b/.*#\1#p' "$patch")
-}
-apply_tree_patch() {
-    local dir="$1" patch="$2" marker="$3" name="$4"
-    [ -f "$patch" ] && [ -f "$dir/$marker" ] || return 0
-    git -C "$dir" apply --check -R "$patch" 2>/dev/null && return 0   # sudah terpasang
-    if ! git -C "$dir" apply "$patch" 2>/dev/null; then
-        reset_patch_files "$dir" "$patch"
-        git -C "$dir" apply "$patch" 2>/dev/null || {
-            err "Tambalan $name tidak cocok lagi (source ROM berubah), dilewati"
-            return 0
-        }
-    fi
-    info "Tambalan: $name"
-}
-fix_per_app_refresh_rate() {
-    [ -f "$SET_PERAPP_PATCH" ] && [ -f packages/apps/Settings/res/xml/display_settings.xml ] || return 0
-    if ! git -C packages/apps/Settings apply --check -R "$SET_PERAPP_PATCH" 2>/dev/null \
-        && grep -rqsiE 'key="[a-z_]*(per_app_refresh|app_refresh_rate|screen_refresh_rate)[a-z_]*"' \
-            packages/apps/Settings/res/xml 2>/dev/null; then
-        info "FPS per aplikasi: ROM ini sudah punya sendiri, tambalan dilewati"
+# Clover (AOSP murni) tidak membawa HAL Lineage "touch" dan "health" yang dipakai
+# sm8450-common (vendor.lineage.touch-service.xiaomi, vendor.lineage.health-service.default).
+# Local manifest mengambil LineageOS/android_hardware_lineage_interfaces ke LOS_IF. Repo itu
+# memuat banyak antarmuka yang sudah ada di hardware/clover/interfaces (nama modul ganda, dan
+# hidl_package_root "vendor.lineage" ganda), jadi hanya health, touch, powershare yang disisakan.
+LOS_IF=hardware/lineage/interfaces
+fix_lineage_interfaces() {
+    [ -d "$LOS_IF" ] && [ -d hardware/clover/interfaces ] || return 0
+    if [ ! -f "$LOS_IF/health/aidl/Android.bp" ] || [ ! -f "$LOS_IF/touch/aidl/Android.bp" ]; then
+        err "$LOS_IF tidak punya health/touch (branch lineage-24.0 berubah?). Build akan gagal di modul vendor.lineage.*"
         return 0
     fi
-    apply_tree_patch frameworks/base "$FW_PERAPP_PATCH" \
-        services/core/java/com/android/server/wm/RefreshRatePolicy.java \
-        "refresh rate per aplikasi (framework)"
-    apply_tree_patch packages/apps/Settings "$SET_PERAPP_PATCH" \
-        res/xml/display_settings.xml "refresh rate per aplikasi (Settings)"
+    local d b removed=0
+    for d in "$LOS_IF"/*/; do
+        b="$(basename "$d")"
+        case "$b" in health|touch|powershare) ;; *) rm -rf "$d"; removed=$((removed + 1)) ;; esac
+    done
+    if [ -f "$LOS_IF/Android.bp" ]; then rm -f "$LOS_IF/Android.bp"; removed=$((removed + 1)); fi
+    [ "$removed" -eq 0 ] || info "Tambalan: $LOS_IF disisakan health/touch/powershare (dibuang $removed item yang bentrok dengan Clover)"
 }
-unpatch_per_app_refresh_rate() {
-    if [ -f "$FW_PERAPP_PATCH" ] && git -C frameworks/base apply --check -R "$FW_PERAPP_PATCH" 2>/dev/null; then
-        git -C frameworks/base apply -R "$FW_PERAPP_PATCH" || true
-    fi
-    if [ -f "$SET_PERAPP_PATCH" ] && git -C packages/apps/Settings apply --check -R "$SET_PERAPP_PATCH" 2>/dev/null; then
-        git -C packages/apps/Settings apply -R "$SET_PERAPP_PATCH" || true
-    fi
+unfix_lineage_interfaces() {
+    [ -d "$LOS_IF/.git" ] || [ -f "$LOS_IF/.git" ] || return 0
+    git -C "$LOS_IF" checkout -q -- . 2>/dev/null || true
 }
 
-# API lint (metalava): resource font di framework-res terbaca sebagai API baru tanpa
-# @FlaggedApi ("class android.R.font [UnflaggedApi]"), api-stubs-docs-non-updatable gagal.
-# Daftarkan ke baseline lint lokal supaya build lanjut (tidak mengubah isi ROM).
-fix_api_lint_baseline() {
-    local f=frameworks/base/core/api/lint-baseline.txt
-    [ -f "$f" ] || return 0
-    grep -q '^UnflaggedApi: android.R.font:' "$f" && return 0
-    [ -n "$(tail -c1 "$f")" ] && echo >> "$f"
-    printf 'UnflaggedApi: android.R.font:\n    New API must be flagged with @FlaggedApi: class android.R.font\n' >> "$f"
-    info "Tambalan: baseline API lint untuk android.R.font"
-}
-# Pengecekan API (check current API): R.font ada di hasil build tapi belum di current.txt.
-fix_api_current() {
-    local f=frameworks/base/core/api/current.txt
-    [ -f "$f" ] || return 0
-    grep -q '^  public static final class R.font {' "$f" && return 0
-    grep -q '^  public static final class R.fraction {' "$f" || return 0
-    awk '/^  public static final class R.fraction \{/ && !d { print "  public static final class R.font {"; print "    ctor public R.font();"; print "  }"; print ""; d=1 } { print }' "$f" > "$f.new" && mv "$f.new" "$f"
-    info "Tambalan: current.txt dilengkapi android.R.font"
-}
 unpatch_source() {
-    git -C frameworks/base checkout -q -- core/api/lint-baseline.txt core/api/current.txt 2>/dev/null || true
-    unpatch_per_app_refresh_rate
+    unfix_lineage_interfaces
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
 }
 patch_source() {
-    fix_api_lint_baseline
-    fix_api_current
-    fix_per_app_refresh_rate
+    fix_lineage_interfaces
     fix_dolby_vision
     fix_gamekey
 }
@@ -345,9 +296,9 @@ do_sync() {
     mkdir -p .repo/local_manifests
     # local manifest lama (percobaan sebelumnya) bisa bentrok, singkirkan
     for f in .repo/local_manifests/*.xml; do
-        [ -e "$f" ] && [ "$(basename "$f")" != derpfest.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
+        [ -e "$f" ] && [ "$(basename "$f")" != clover.xml ] && mv -f "$f" "$f.bak" && info "Menyingkirkan $(basename "$f")"
     done
-    curl -fsSL -o .repo/local_manifests/derpfest.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
+    curl -fsSL -o .repo/local_manifests/clover.xml "$MANIFEST_URL?$(date +%s)" || { err "Gagal unduh local manifest"; exit 1; }
 
     # sisa percobaan lama: folder ingres/xiaomi yang bukan hasil repo ini bikin
     # "unsupported checkout state" dan Android.bp lama (vendor common salah versi)
@@ -359,7 +310,7 @@ do_sync() {
     }
 
     unpatch_source
-    local n slog="$HOME/sync-derpfest.log"
+    local n slog="$HOME/sync-clover.log"
     for n in 1 2 3; do
         info "repo sync (percobaan $n/3)"
         repo sync -c -j8 --force-sync --no-clone-bundle --no-tags --optimized-fetch --prune --force-remove-dirty 2>&1 | tee "$slog"
@@ -395,13 +346,16 @@ do_sync() {
 # Makefile/include kernel berubah. Kalau header UAPI vendor (audio/display) tidak
 # lengkap, hapus supaya dibuat ulang dari kernel yang sekarang.
 fix_kernel_headers() {
-    local g=out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes
-    [ -d "$g" ] || return 0
-    if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
-        || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
-        info "Header kernel tidak lengkap, dibuat ulang"
-        rm -rf "$g"
-    fi
+    local g
+    for g in out/soong/.intermediates/vendor/clover/build/soong/generated_kernel_includes \
+             out/soong/.intermediates/vendor/lineage/build/soong/generated_kernel_includes; do
+        [ -d "$g" ] || continue
+        if [ -z "$(find "$g" -path '*usr/include/display/drm/sde_drm.h' -print -quit 2>/dev/null)" ] \
+            || [ -z "$(find "$g" -path '*usr/include/audio/linux/msm_audio.h' -print -quit 2>/dev/null)" ]; then
+            info "Header kernel tidak lengkap, dibuat ulang"
+            rm -rf "$g"
+        fi
+    done
 }
 
 # ----------------------------------------------------------------- build
@@ -428,6 +382,11 @@ do_build() {
     esac
     info "Varian build: $variant_list"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
+    case "${GAPPS:-1}" in
+        0|vanilla|false) export WITH_GMS=false; info "Vanilla (tanpa GApps)" ;;
+        *) export WITH_GMS=true; info "Dengan GApps (Pixel GMS bawaan Clover)" ;;
+    esac
+    export CLOVER_MAINTAINER="${CLOVER_MAINTAINER:-kingD2N}"
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
     local start rc
     start=$(date +%s)
@@ -448,19 +407,19 @@ do_build() {
     fi
 }
 
-# Build ROM: $1 = jumlah job, $2 = user / userdebug / eng (DerpFest selalu membawa GApps)
+# Build ROM: $1 = jumlah job, $2 = user / userdebug / eng (GApps/vanilla lewat WITH_GMS, lihat GAPPS)
 build_rom() {
-    local jobs="$1" variant="$2" rc vstart name="DerpFest $2"
+    local jobs="$1" variant="$2" rc vstart name="Clover $2"
     vstart=$(date +%s)
     info "Build $name"
-    lunch "lineage_ingres-cp2a-$variant" || { err "lunch lineage_ingres-cp2a-$variant gagal (cek local manifest / sync)"; exit 1; }
+    lunch "clover_ingres-cp2a-$variant" || { err "lunch clover_ingres-cp2a-$variant gagal (cek local manifest / sync)"; exit 1; }
     # user <-> userdebug: file varian lama masih tertinggal di out/ -> installclean saat berganti
     if [ -f .variant-ingres ] && [ "$(cat .variant-ingres)" != "$variant" ]; then
         info "Varian berganti ($(cat .variant-ingres) -> $variant): installclean dulu"
         m installclean >/dev/null 2>&1 || true
     fi
     echo "$variant" > .variant-ingres
-    m derp -j"$jobs" 2>&1 | tee "$LOG"
+    m clover -j"$jobs" 2>&1 | tee "$LOG"
     rc=${PIPESTATUS[0]}
     echo "Durasi $name: $(( ($(date +%s) - vstart) / 60 )) menit"
 
@@ -482,7 +441,7 @@ build_rom() {
     fi
 
     local p="out/target/product/ingres" zip
-    zip=$(ls -t "$p"/DerpFest-*ingres*.zip 2>/dev/null | grep -v target_files | head -n 1)
+    zip=$(ls -t "$p"/CloverProject-*ingres*.zip 2>/dev/null | grep -v target_files | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
     # nama zip/img user dan userdebug bisa sama -> selain user diberi akhiran varian
     local sfx="" out img
