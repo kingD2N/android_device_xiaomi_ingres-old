@@ -43,6 +43,9 @@ SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/clover/public
 SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/clover/private
 BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/clover/vendor
 
+# VINTF: matriks framework untuk HAL Lineage yang ada di manifest device
+DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += $(DEVICE_PATH)/vintf/lineage_hals_matrix.xml
+
 # Paket tambahan (GameKeys, LED, Dolby Lunaris, JamesDSP, MIUI Camera)
 INGRES_ADDONS_ROM := los
 -include vendor/ingres/addons/BoardConfigAddons.mk
