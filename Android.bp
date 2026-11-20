@@ -6,3 +6,11 @@
 
 soong_namespace {
 }
+
+// EuiccPolicy comes from the LineageOS base and is required by XiaomiEuicc
+// (hardware/xiaomi). Bases without it (The Clover Project) would fail with
+// "XiaomiEuicc requires non-existent TARGET module: EuiccPolicy". ingres has
+// no eSIM, so an empty module is enough.
+phony {
+    name: "EuiccPolicy",
+}
