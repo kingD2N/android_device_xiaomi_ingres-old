@@ -36,6 +36,13 @@ TARGET_VENDOR_PROP += $(DEVICE_PATH)/properties/vendor.prop
 # Screen density
 TARGET_SCREEN_DENSITY := 395
 
+# SELinux: tipe HAL Lineage (health, powershare, touch) yang dipakai device tree
+# sm8450-common. The Clover Project tidak punya device/lineage/sepolicy, jadi
+# definisinya dibawa di sini (disalin dari LineageOS/android_device_lineage_sepolicy).
+SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/clover/public
+SYSTEM_EXT_PRIVATE_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/clover/private
+BOARD_VENDOR_SEPOLICY_DIRS += $(DEVICE_PATH)/sepolicy/clover/vendor
+
 # Paket tambahan (GameKeys, LED, Dolby Lunaris, JamesDSP, MIUI Camera)
 INGRES_ADDONS_ROM := los
 -include vendor/ingres/addons/BoardConfigAddons.mk

@@ -1,0 +1,8 @@
+#
+# SPDX-FileCopyrightText: The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+
+hal_attribute_lineage(lineage_health)
+hal_attribute_lineage(lineage_powershare)
+hal_attribute_lineage(lineage_touch)
