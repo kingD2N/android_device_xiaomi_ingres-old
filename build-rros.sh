@@ -589,12 +589,20 @@ CORE_KEYS="releasekey platform shared media networkstack bluetooth sdk_sandbox n
 have_keys() { [ -f "$KEYS_DIR/releasekey.pk8" ] && [ -f "$KEYS_DIR/releasekey.x509.pem" ] && [ -f "$KEYS_DIR/platform.pk8" ]; }
 want_sign() { [ "${SIGN:-auto}" != 0 ] && have_keys; }
 
-make_one_key() {   # $1=nama kunci (tanpa sandi); tidak pernah menimpa kunci lengkap
-    local k="$1" subj="/C=ID/ST=Indonesia/L=Jakarta/O=kingD2N/OU=RROS/CN=$1" b="$KEYS_DIR/$1"
+make_one_key() {   # $1=nama kunci (tanpa sandi) $2=bit RSA (default 2048; APEX wajib 4096). Tidak menimpa kunci lengkap
+    local k="$1" bits="${2:-2048}" subj="/C=ID/ST=Indonesia/L=Jakarta/O=kingD2N/OU=RROS/CN=$1" b="$KEYS_DIR/$1" mk="$SRC/development/tools/make_key" tmpmk=""
+    # kunci APEX yang terlanjur dibuat 2048 bit tidak diterima avbtool (SHA256_RSA4096) -> buat ulang
+    if [ "$bits" != 2048 ] && [ -s "$b.pem" ] && ! openssl rsa -in "$b.pem" -noout -text 2>/dev/null | head -n 1 | grep -q "($bits bit"; then
+        rm -f "$b".pk8 "$b".x509.pem "$b".pem
+    fi
     # make_key AOSP selalu keluar dengan kode 1 (trap EXIT) -> jangan andalkan kode keluarnya, cek file
     if ! { [ -s "$b.pk8" ] && [ -s "$b.x509.pem" ]; }; then
         rm -f "$b.pk8" "$b.x509.pem"   # sisa setengah jadi
-        echo | "$SRC/development/tools/make_key" "$b" "$subj" >/dev/null 2>&1
+        if [ "$bits" != 2048 ]; then
+            tmpmk=$(mktemp); sed "s/2048/$bits/g" "$mk" > "$tmpmk"; chmod +x "$tmpmk"; mk="$tmpmk"
+        fi
+        echo | "$mk" "$b" "$subj" >/dev/null 2>&1
+        [ -z "$tmpmk" ] || rm -f "$tmpmk"
     fi
     { [ -s "$b.pk8" ] && [ -s "$b.x509.pem" ]; } || return 1
     [ -s "$b.pem" ] || openssl pkcs8 -in "$b.pk8" -inform DER -nocrypt -out "$b.pem" 2>/dev/null || return 1
@@ -643,7 +651,7 @@ sign_variant() {
     while read -r apx; do
         [ -n "$apx" ] || continue
         name="${apx##*/}"; base="${name%.*}"
-        make_one_key "$base" || { err "Gagal membuat kunci APEX $base"; return 1; }
+        make_one_key "$base" 4096 || { err "Gagal membuat kunci APEX $base"; return 1; }
         args+=(--extra_apks "$name=$KEYS_DIR/$base" --extra_apex_payload_key "$name=$KEYS_DIR/$base.pem")
     done < <(python3 - "$tf" <<'PY'
 import re, sys, zipfile
