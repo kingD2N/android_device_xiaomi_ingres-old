@@ -32,6 +32,8 @@ ROM=rros
 ROM_NAME="ResurrectedRemix OS 17"
 ROM_MANIFEST="https://github.com/ResurrectedRemixOS/manifest"; ROM_BRANCH="rr-17.0"
 SRC="${SRC:-$HOME/rros}"
+# launcher repo bawaan server (fork Shra1V32) memaksa cookiefile googlesource -> pakai launcher resmi Gerrit
+REPO_ARGS=(--repo-url=https://github.com/GerritCodeReview/git-repo.git --repo-branch=main --no-repo-verify)
 VARIANT="${VARIANT:-user}"
 SESSION="rros"
 KEYS_DIR="${KEYS_DIR:-$HOME/.android-certs}"
@@ -445,16 +447,20 @@ do_sync() {
     done
     mkdir -p "$SRC" && cd "$SRC" || exit 1
     local cur_url cur_branch
+    # launcher lama (fork Shra1V32) tertinggal dari percobaan gagal -> hapus agar diganti launcher Gerrit
+    if [ -d .repo/repo/.git ] && ! git -C .repo/repo config remote.origin.url 2>/dev/null | grep -q GerritCodeReview; then
+        rm -rf .repo/repo
+    fi
     cur_url=$(git -C .repo/manifests config remote.origin.url 2>/dev/null || true)
     cur_branch=$(git -C .repo/manifests config branch.default.merge 2>/dev/null | sed 's#refs/heads/##' || true)
     if [ ! -d .repo ]; then
         check_disk 300
         info "repo init $ROM_NAME"
-        repo init -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
+        repo init "${REPO_ARGS[@]}" -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
     elif [ "${cur_url%.git}" != "$ROM_MANIFEST" ] || { [ -n "$cur_branch" ] && [ "$cur_branch" != "$ROM_BRANCH" ]; }; then
         info "Pindah manifest ke $ROM_NAME (source yang sama dipakai ulang)"
-        repo init -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
+        repo init "${REPO_ARGS[@]}" -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
     fi
     mkdir -p .repo/local_manifests
