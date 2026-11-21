@@ -589,12 +589,16 @@ CORE_KEYS="releasekey platform shared media networkstack bluetooth sdk_sandbox n
 have_keys() { [ -f "$KEYS_DIR/releasekey.pk8" ] && [ -f "$KEYS_DIR/releasekey.x509.pem" ] && [ -f "$KEYS_DIR/platform.pk8" ]; }
 want_sign() { [ "${SIGN:-auto}" != 0 ] && have_keys; }
 
-make_one_key() {   # $1=nama kunci (tanpa sandi); tidak pernah menimpa
-    local k="$1" subj="/C=ID/ST=Indonesia/L=Jakarta/O=kingD2N/OU=RROS/CN=$1"
-    [ -f "$KEYS_DIR/$k.pk8" ] && return 0
-    echo | "$SRC/development/tools/make_key" "$KEYS_DIR/$k" "$subj" >/dev/null 2>&1 || return 1
-    openssl pkcs8 -in "$KEYS_DIR/$k.pk8" -inform DER -nocrypt -out "$KEYS_DIR/$k.pem" 2>/dev/null || return 1
-    chmod 600 "$KEYS_DIR/$k".* 2>/dev/null
+make_one_key() {   # $1=nama kunci (tanpa sandi); tidak pernah menimpa kunci lengkap
+    local k="$1" subj="/C=ID/ST=Indonesia/L=Jakarta/O=kingD2N/OU=RROS/CN=$1" b="$KEYS_DIR/$1"
+    # make_key AOSP selalu keluar dengan kode 1 (trap EXIT) -> jangan andalkan kode keluarnya, cek file
+    if ! { [ -s "$b.pk8" ] && [ -s "$b.x509.pem" ]; }; then
+        rm -f "$b.pk8" "$b.x509.pem"   # sisa setengah jadi
+        echo | "$SRC/development/tools/make_key" "$b" "$subj" >/dev/null 2>&1
+    fi
+    { [ -s "$b.pk8" ] && [ -s "$b.x509.pem" ]; } || return 1
+    [ -s "$b.pem" ] || openssl pkcs8 -in "$b.pk8" -inform DER -nocrypt -out "$b.pem" 2>/dev/null || return 1
+    chmod 600 "$b".* 2>/dev/null
     return 0
 }
 
@@ -604,7 +608,7 @@ do_keys() {
     mkdir -p "$KEYS_DIR"; chmod 700 "$KEYS_DIR"
     local k made=0
     for k in $CORE_KEYS; do
-        if [ -f "$KEYS_DIR/$k.pk8" ]; then continue; fi
+        if [ -s "$KEYS_DIR/$k.pk8" ] && [ -s "$KEYS_DIR/$k.x509.pem" ] && [ -s "$KEYS_DIR/$k.pem" ]; then continue; fi
         info "Membuat kunci: $k"
         make_one_key "$k" || { err "Gagal membuat kunci $k"; exit 1; }
         made=$((made + 1))
