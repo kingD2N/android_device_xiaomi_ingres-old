@@ -448,8 +448,9 @@ do_sync() {
     mkdir -p "$SRC" && cd "$SRC" || exit 1
     local cur_url cur_branch
     # launcher lama (fork Shra1V32) tertinggal dari percobaan gagal -> hapus agar diganti launcher Gerrit
+    local relaunch=0
     if [ -d .repo/repo/.git ] && ! git -C .repo/repo config remote.origin.url 2>/dev/null | grep -q GerritCodeReview; then
-        rm -rf .repo/repo
+        rm -rf .repo/repo; relaunch=1
     fi
     cur_url=$(git -C .repo/manifests config remote.origin.url 2>/dev/null || true)
     cur_branch=$(git -C .repo/manifests config branch.default.merge 2>/dev/null | sed 's#refs/heads/##' || true)
@@ -458,8 +459,8 @@ do_sync() {
         info "repo init $ROM_NAME"
         repo init "${REPO_ARGS[@]}" -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
-    elif [ "${cur_url%.git}" != "$ROM_MANIFEST" ] || { [ -n "$cur_branch" ] && [ "$cur_branch" != "$ROM_BRANCH" ]; }; then
-        info "Pindah manifest ke $ROM_NAME (source yang sama dipakai ulang)"
+    elif [ "$relaunch" = 1 ] || [ "${cur_url%.git}" != "$ROM_MANIFEST" ] || { [ -n "$cur_branch" ] && [ "$cur_branch" != "$ROM_BRANCH" ]; }; then
+        info "repo init ulang dengan launcher resmi ($ROM_NAME, source yang sama dipakai ulang)"
         repo init "${REPO_ARGS[@]}" -u "$ROM_MANIFEST" -b "$ROM_BRANCH" \
             --git-lfs --no-clone-bundle --depth=1 || { err "repo init gagal"; exit 1; }
     fi
