@@ -10,8 +10,6 @@
 #   bash build-rros.sh clean      # hapus hasil build lama (out/) lalu berhenti
 #   bash build-rros.sh bersih ~/aospa   # hapus source ROM lain / folder lama
 #   bash build-rros.sh reset-ingres     # hapus repo ingres/xiaomi lama lalu sync ulang
-#   bash build-rros.sh keys       # (sekali saja) buat kunci tanda tangan pribadi di ~/.android-certs
-#   bash build-rros.sh sign       # tandatangani hasil build yang sudah ada (tanpa build ulang penuh)
 #
 # Pengaturan (opsional, isi sebelum perintah, contoh: VARIANT=userdebug bash build-rros.sh):
 #   SRC=~/rros         folder source
@@ -23,8 +21,6 @@
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
-#   SIGN=0             jangan tandatangani (default: otomatis kalau kunci sudah dibuat dengan 'keys')
-#   KEYS_DIR=~/.android-certs   folder kunci tanda tangan
 
 set -uo pipefail
 
@@ -36,7 +32,6 @@ SRC="${SRC:-$HOME/rros}"
 REPO_ARGS=(--repo-url=https://github.com/GerritCodeReview/git-repo.git --repo-branch=main --no-repo-verify)
 VARIANT="${VARIANT:-user}"
 SESSION="rros"
-KEYS_DIR="${KEYS_DIR:-$HOME/.android-certs}"
 LOG="$HOME/build.log"
 MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/rros-17.0/local_manifests/rros.xml"
 HASIL_DIR="$HOME/hasil-rros"
@@ -101,13 +96,13 @@ if [ "$CMD" = "bersih" ]; then
 fi
 
 # ------------------------------------------- selalu jalan di dalam byobu
-if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" != "reset-ingres" ] && [ "$CMD" != "keys" ]; then
+if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" != "reset-ingres" ]; then
     command -v byobu >/dev/null || { err "byobu tidak ada di server"; exit 1; }
     if byobu ls 2>/dev/null | grep -q "^$SESSION"; then
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' SIGN='${SIGN:-auto}' KEYS_DIR='$KEYS_DIR'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -446,9 +441,8 @@ do_sync() {
         exit 1
     done
     mkdir -p "$SRC" && cd "$SRC" || exit 1
-    local cur_url cur_branch
+    local cur_url cur_branch relaunch=0
     # launcher lama (fork Shra1V32) tertinggal dari percobaan gagal -> hapus agar diganti launcher Gerrit
-    local relaunch=0
     if [ -d .repo/repo/.git ] && ! git -C .repo/repo config remote.origin.url 2>/dev/null | grep -q GerritCodeReview; then
         rm -rf .repo/repo; relaunch=1
     fi
@@ -581,158 +575,6 @@ do_build() {
     fi
 }
 
-# ------------------------------------------------- tanda tangan (kunci pribadi)
-# Kunci rilis sendiri menggantikan kunci uji AOSP. Simpan ~/.android-certs (cadangkan!),
-# jangan pernah dibagikan/di-upload. Ganti kunci = wajib wipe data (tanda tangan app sistem berubah).
-CORE_KEYS="releasekey platform shared media networkstack bluetooth sdk_sandbox nfc"
-
-have_keys() { [ -f "$KEYS_DIR/releasekey.pk8" ] && [ -f "$KEYS_DIR/releasekey.x509.pem" ] && [ -f "$KEYS_DIR/platform.pk8" ]; }
-want_sign() { [ "${SIGN:-auto}" != 0 ] && have_keys; }
-
-make_one_key() {   # $1=nama kunci (tanpa sandi) $2=bit RSA (default 2048; APEX wajib 4096). Tidak menimpa kunci lengkap
-    local k="$1" bits="${2:-2048}" subj="/C=ID/ST=Indonesia/L=Jakarta/O=kingD2N/OU=RROS/CN=$1" b="$KEYS_DIR/$1" mk="$SRC/development/tools/make_key" tmpmk=""
-    # kunci APEX yang terlanjur dibuat 2048 bit tidak diterima avbtool (SHA256_RSA4096) -> buat ulang
-    if [ "$bits" != 2048 ] && [ -s "$b.pem" ] && ! openssl rsa -in "$b.pem" -noout -text 2>/dev/null | head -n 1 | grep -q "($bits bit"; then
-        rm -f "$b".pk8 "$b".x509.pem "$b".pem
-    fi
-    # make_key AOSP selalu keluar dengan kode 1 (trap EXIT) -> jangan andalkan kode keluarnya, cek file
-    if ! { [ -s "$b.pk8" ] && [ -s "$b.x509.pem" ]; }; then
-        rm -f "$b.pk8" "$b.x509.pem"   # sisa setengah jadi
-        if [ "$bits" != 2048 ]; then
-            tmpmk=$(mktemp); sed "s/2048/$bits/g" "$mk" > "$tmpmk"; chmod +x "$tmpmk"; mk="$tmpmk"
-        fi
-        echo | "$mk" "$b" "$subj" >/dev/null 2>&1
-        [ -z "$tmpmk" ] || rm -f "$tmpmk"
-    fi
-    { [ -s "$b.pk8" ] && [ -s "$b.x509.pem" ]; } || return 1
-    [ -s "$b.pem" ] || openssl pkcs8 -in "$b.pk8" -inform DER -nocrypt -out "$b.pem" 2>/dev/null || return 1
-    chmod 600 "$b".* 2>/dev/null
-    return 0
-}
-
-do_keys() {
-    [ -x "$SRC/development/tools/make_key" ] || { err "make_key tidak ada di $SRC/development/tools (sync dulu: bash $SCRIPT sync)"; exit 1; }
-    command -v openssl >/dev/null || { err "openssl tidak terpasang di server"; exit 1; }
-    mkdir -p "$KEYS_DIR"; chmod 700 "$KEYS_DIR"
-    local k made=0
-    for k in $CORE_KEYS; do
-        if [ -s "$KEYS_DIR/$k.pk8" ] && [ -s "$KEYS_DIR/$k.x509.pem" ] && [ -s "$KEYS_DIR/$k.pem" ]; then continue; fi
-        info "Membuat kunci: $k"
-        make_one_key "$k" || { err "Gagal membuat kunci $k"; exit 1; }
-        made=$((made + 1))
-    done
-    if [ "$made" -eq 0 ]; then
-        ok "Kunci sudah ada di $KEYS_DIR (tidak ditimpa)."
-    else
-        ok "$made kunci dibuat di $KEYS_DIR"
-    fi
-    echo "PENTING:"
-    echo " 1. Cadangkan folder $KEYS_DIR (unduh lewat SFTP Termius, simpan aman). Kunci hilang = update berikutnya tidak bisa dirilis dengan tanda tangan yang sama."
-    echo " 2. JANGAN dibagikan / dikirim ke chat / di-upload ke GitHub."
-    echo " 3. Build pertama yang bertanda tangan ini = WAJIB wipe data (Format Data) saat flash dari ROM bertanda tangan lain."
-    echo "Build berikutnya (bash $SCRIPT) otomatis memakai kunci ini. Lewati sementara: SIGN=0"
-}
-
-# Tandatangani: target-files -> sign_target_files_apks -> ota_from_target_files. $1=jobs $2=zip tujuan
-sign_variant() {
-    local jobs="$1" dest="$2" p="out/target/product/ingres" tf work stf ota apx name base rc
-    local -a args=()
-    check_disk 25
-    export PATH="$SRC/out/host/linux-x86/bin:$PATH"
-    info "Menandatangani dengan kunci pribadi ($KEYS_DIR)"
-    m target-files-package otatools -j"$jobs" 2>&1 | tee -a "$LOG"
-    rc=${PIPESTATUS[0]}
-    [ "$rc" -eq 0 ] || { err "m target-files-package otatools gagal (lihat $LOG)"; return 1; }
-    tf=$(ls -t "$p"/obj/PACKAGING/target_files_intermediates/*-target_files*.zip 2>/dev/null | head -n 1)
-    [ -n "$tf" ] || { err "target-files zip tidak ditemukan"; return 1; }
-    command -v sign_target_files_apks >/dev/null && command -v ota_from_target_files >/dev/null \
-        || { err "sign_target_files_apks / ota_from_target_files tidak ada (m otatools gagal?)"; return 1; }
-    # kunci APEX: satu kunci per paket APEX yang ada di target-files (dibuat sekali, dipakai seterusnya)
-    while read -r apx; do
-        [ -n "$apx" ] || continue
-        name="${apx##*/}"; base="${name%.*}"
-        make_one_key "$base" 4096 || { err "Gagal membuat kunci APEX $base"; return 1; }
-        args+=(--extra_apks "$name=$KEYS_DIR/$base" --extra_apex_payload_key "$name=$KEYS_DIR/$base.pem")
-    done < <(python3 - "$tf" <<'PY'
-import re, sys, zipfile
-seen = set()
-for n in zipfile.ZipFile(sys.argv[1]).namelist():
-    m = re.search(r'(?:^|/)apex/([^/]+\.(?:apex|capex))$', n)
-    if m and m.group(1) not in seen:
-        seen.add(m.group(1)); print(m.group(1))
-PY
-)
-    info "APEX yang ikut ditandatangani: $(( ${#args[@]} / 4 ))"
-    work="out/signing"; rm -rf "$work"; mkdir -p "$work"
-    stf="$work/signed-target_files.zip"; ota="$work/signed-ota.zip"
-    sign_target_files_apks -o -d "$KEYS_DIR" "${args[@]}" "$tf" "$stf" 2>&1 | tee -a "$LOG" | tail -n 5
-    rc=${PIPESTATUS[0]}
-    if [ "$rc" -ne 0 ] || [ ! -s "$stf" ]; then
-        err "sign_target_files_apks gagal (log lengkap: $LOG)"
-        grep -n -B2 -A12 'Traceback\|ERROR\|Error' "$LOG" | tail -n 30
-        rm -rf "$work"; return 1
-    fi
-    if ! ota_from_target_files -k "$KEYS_DIR/releasekey" --block --backup=true "$stf" "$ota" >>"$LOG" 2>&1; then
-        info "Opsi --block/--backup tidak diterima, coba tanpa itu"
-        ota_from_target_files -k "$KEYS_DIR/releasekey" "$stf" "$ota" >>"$LOG" 2>&1 || true
-    fi
-    [ -s "$ota" ] || { err "ota_from_target_files gagal (log lengkap: $LOG)"; tail -n 25 "$LOG"; rm -rf "$work"; return 1; }
-    mv "$ota" "$dest"
-    # image boot hasil tanda tangan (untuk fastboot, kalau perlu)
-    unzip -o -j -q "$stf" IMAGES/boot.img IMAGES/vendor_boot.img IMAGES/dtbo.img -d "$HASIL_DIR" 2>/dev/null || true
-    rm -rf "$work"
-    return 0
-}
-
-# Salin hasil build ke HASIL_DIR; tandatangani kalau kunci ada. $1=gms $2=jobs
-package_variant() {
-    local gms="$1" jobs="$2" p="out/target/product/ingres" zip out
-    zip=$(ls -t "$p"/ResurrectedRemix-*-ingres.zip 2>/dev/null | head -n 1)
-    [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
-    out="$(basename "$zip")"
-    [ "$gms" = true ] && out="${out%.zip}-GApps.zip"
-    mkdir -p "$HASIL_DIR"
-    if want_sign; then
-        if sign_variant "$jobs" "$HASIL_DIR/${out%.zip}-signed.zip"; then
-            out="${out%.zip}-signed.zip"
-            ok "ROM bertanda tangan kunci pribadi (wipe data wajib kalau sebelumnya bukan kunci ini)"
-        else
-            err "Tanda tangan gagal -> memakai zip TANPA tanda tangan pribadi (kunci uji AOSP)"
-            cp "$zip" "$HASIL_DIR/$out"
-            cp $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-        fi
-    else
-        cp "$zip" "$HASIL_DIR/$out"
-        cp $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
-        [ "${SIGN:-auto}" = 0 ] || info "Kunci pribadi belum ada -> ROM memakai kunci uji AOSP. Buat sekali: bash $SCRIPT keys"
-    fi
-    (cd "$HASIL_DIR" && sha256sum "$out" > "$out.sha256")
-    ok "Selesai: $out"
-}
-
-do_sign() {
-    have_keys || { err "Kunci belum ada. Buat dulu: bash $SCRIPT keys"; exit 1; }
-    cd "$SRC" 2>/dev/null && [ -f build/envsetup.sh ] || { err "Source belum ada. Jalankan: bash $SCRIPT sync"; exit 1; }
-    [ -d out/target/product/ingres ] || { err "Belum ada hasil build. Jalankan: bash $SCRIPT build"; exit 1; }
-    local jobs ram_gb gms
-    ram_gb=$(free -g | awk '/^Mem:/{print $2}')
-    jobs=${JOBS:-$(( ram_gb / 2 ))}
-    [ "$jobs" -gt "$(nproc)" ] && jobs=$(nproc)
-    [ "$jobs" -lt 2 ] && jobs=2
-    SIGN=1
-    gms=$(cat .gms-ingres 2>/dev/null || echo true)
-    set +u
-    # shellcheck disable=SC1091
-    source build/envsetup.sh >/dev/null
-    export WITH_GMS="$gms"
-    [ "$gms" = true ] && export RELAX_USES_LIBRARY_CHECK=true
-    if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; else export TARGET_DECRYPTED_DATA=true; fi
-    breakfast ingres "$VARIANT" || { err "breakfast ingres $VARIANT gagal"; exit 1; }
-    package_variant "$gms" "$jobs"
-    ls -lh "$HASIL_DIR"
-    if [ "${GOFILE:-1}" != 0 ]; then do_upload || echo "Upload GoFile gagal. Ulangi: bash $SCRIPT upload"; fi
-}
-
 # Build satu varian: $1 = true (GApps) / false (vanilla), $2 = jumlah job
 build_variant() {
     local gms="$1" jobs="$2" rc vstart name
@@ -774,7 +616,15 @@ build_variant() {
         exit 1
     fi
 
-    package_variant "$gms" "$jobs"
+    local p="out/target/product/ingres" zip out
+    zip=$(ls -t "$p"/ResurrectedRemix-*-ingres.zip 2>/dev/null | head -n 1)
+    [ -n "$zip" ] || { err "Build selesai tapi zip tidak ditemukan"; exit 1; }
+    out="$(basename "$zip")"
+    [ "$gms" = true ] && out="${out%.zip}-GApps.zip"
+    cp "$zip" "$HASIL_DIR/$out"
+    cp $p/boot.img $p/dtbo.img $p/vendor_boot.img $p/recovery.img "$HASIL_DIR"/ 2>/dev/null
+    (cd "$HASIL_DIR" && sha256sum "$out" > "$out.sha256")
+    ok "Selesai: $out"
 }
 
 # ------------------------------------------------------------- GoFile
@@ -836,8 +686,6 @@ case "$CMD" in
     sync)  check_tools; do_sync ;;
     build) check_tools; do_build ;;
     upload) do_upload ;;
-    keys)  do_keys ;;
-    sign)  check_tools; do_sign ;;
     reset-ingres)
         cd "$SRC" 2>/dev/null || { err "Folder $SRC tidak ada"; exit 1; }
         for d in device/xiaomi/ingres device/xiaomi/sm8450-common hardware/xiaomi \
@@ -853,5 +701,5 @@ case "$CMD" in
         rm -rf "${SRC:?}/out" "$HASIL_DIR"
         ok "Bersih. Ruang disk kosong: $(df -h --output=avail "$HOME" | tail -n 1)"
         ;;
-    *) err "Perintah tidak dikenal: $CMD (pakai: all | sync | build | upload | clean | status | bersih | reset-ingres | keys | sign)"; exit 1 ;;
+    *) err "Perintah tidak dikenal: $CMD (pakai: all | sync | build | upload | clean | status | bersih | reset-ingres)"; exit 1 ;;
 esac
