@@ -338,6 +338,53 @@ unpatch_per_app_refresh_rate() {
 # Tambalan dijaga: kalau Launcher3 Infinity X tidak cocok, dilewati dengan pesan jelas.
 L3_DIR=packages/apps/Launcher3
 L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-recents-freeform-gesture.patch"
+L3_XML=res/xml/launcher_preferences.xml
+L3_KT=src/com/android/launcher3/LauncherPrefs.kt
+# Saklar + batas geser di Setelan Layar utama. Disisipkan lewat skrip (bukan tambalan baris)
+# karena letak baris di launcher_preferences.xml / LauncherPrefs.kt beda-beda tiap ROM.
+l3_bubble_prefs() {
+    python3 - "$L3_DIR/$L3_XML" "$L3_DIR/$L3_KT" <<'PYEOF'
+import re, sys
+xml, kt = sys.argv[1], sys.argv[2]
+block = """    <SwitchPreferenceCompat
+        android:defaultValue="false"
+        android:key="pref_recents_freeform_gesture"
+        android:persistent="true"
+        android:title="@string/pref_recents_freeform_gesture_title"
+        android:summary="@string/pref_recents_freeform_gesture_summary" />
+
+    <DropDownPreference
+        android:defaultValue="60"
+        android:dependency="pref_recents_freeform_gesture"
+        android:entries="@array/pref_recents_freeform_threshold_entries"
+        android:entryValues="@array/pref_recents_freeform_threshold_values"
+        android:key="pref_recents_freeform_threshold"
+        android:persistent="true"
+        android:title="@string/pref_recents_freeform_threshold_title"
+        android:summary="%s" />
+
+"""
+s = open(xml).read()
+if "pref_recents_freeform_gesture" not in s:
+    ms = list(re.finditer(r"</(?:androidx\.preference\.)?PreferenceScreen>", s))
+    if not ms:
+        sys.exit("penutup PreferenceScreen tidak ketemu")
+    i = ms[-1].start()
+    open(xml, "w").write(s[:i] + block + s[i:])
+k = open(kt).read()
+if "RECENTS_FREEFORM_GESTURE" not in k:
+    if "backedUpItem(" not in k:
+        sys.exit("backedUpItem tidak ada di LauncherPrefs.kt")
+    m = re.search(r"companion object\s*\{\n", k)
+    if not m:
+        sys.exit("companion object tidak ketemu di LauncherPrefs.kt")
+    add = ("        @JvmField\n"
+           "        val RECENTS_FREEFORM_GESTURE = backedUpItem(\"pref_recents_freeform_gesture\", false)\n"
+           "        @JvmField\n"
+           "        val RECENTS_FREEFORM_THRESHOLD = backedUpItem(\"pref_recents_freeform_threshold\", \"60\")\n")
+    open(kt, "w").write(k[:m.end()] + add + k[m.end():])
+PYEOF
+}
 fix_launcher3_bubble() {
     [ -f "$L3_PATCH" ] || return 0
     if [ ! -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ]; then
@@ -352,11 +399,19 @@ fix_launcher3_bubble() {
     apply_tree_patch "$L3_DIR" "$L3_PATCH" \
         quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java \
         "Launcher3 geser ke atas -> gelembung aplikasi"
+    [ -f "$L3_DIR/quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java" ] || return 0
+    if l3_bubble_prefs; then
+        info "Tambalan: saklar gelembung di Setelan Layar utama"
+    else
+        err "Saklar gelembung gagal dipasang (struktur Launcher3 beda), seluruh tambalan gelembung dibatalkan"
+        unpatch_launcher3_bubble
+    fi
 }
 unpatch_launcher3_bubble() {
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
         git -C "$L3_DIR" apply -R "$L3_PATCH" || true
     fi
+    git -C "$L3_DIR" checkout -q -- "$L3_XML" "$L3_KT" 2>/dev/null || true
 }
 
 # EKSPERIMEN: driver GPU Adreno V837.0.9 ditanam langsung ke image vendor.

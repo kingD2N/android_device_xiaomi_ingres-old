@@ -16,8 +16,6 @@ the shell cannot create app bubbles.
  .../util/RecentsFreeformGesture.java          | 115 ++++++++++++++++++
  res/values-in/freeform_gesture_strings.xml    |  21 ++++
  res/values/freeform_gesture_strings.xml       |  42 +++++++
- res/xml/launcher_preferences.xml              |  17 +++
- src/com/android/launcher3/LauncherPrefs.kt    |   4 +
  6 files changed, 220 insertions(+), 1 deletion(-)
  create mode 100644 quickstep/src/com/android/quickstep/util/RecentsFreeformGesture.java
  create mode 100644 res/values-in/freeform_gesture_strings.xml
@@ -290,49 +288,3 @@ index 0000000..756ccc7
 +        <item>80</item>
 +    </string-array>
 +</resources>
-diff --git a/res/xml/launcher_preferences.xml b/res/xml/launcher_preferences.xml
-index 3ef7795..fcbeb49 100644
---- a/res/xml/launcher_preferences.xml
-+++ b/res/xml/launcher_preferences.xml
-@@ -33,6 +33,23 @@
-         android:title="@string/pref_sleep_gesture_title"
-         android:summary="@string/pref_sleep_gesture_summary" />
- 
-+    <SwitchPreferenceCompat
-+        android:defaultValue="false"
-+        android:key="pref_recents_freeform_gesture"
-+        android:persistent="true"
-+        android:title="@string/pref_recents_freeform_gesture_title"
-+        android:summary="@string/pref_recents_freeform_gesture_summary" />
-+
-+    <DropDownPreference
-+        android:defaultValue="60"
-+        android:dependency="pref_recents_freeform_gesture"
-+        android:entries="@array/pref_recents_freeform_threshold_entries"
-+        android:entryValues="@array/pref_recents_freeform_threshold_values"
-+        android:key="pref_recents_freeform_threshold"
-+        android:persistent="true"
-+        android:title="@string/pref_recents_freeform_threshold_title"
-+        launcher:useSimpleSummaryProvider="true" />
-+
-     <com.android.launcher3.settings.NotificationDotsPreference
-         android:key="pref_icon_badging"
-         android:title="@string/notification_dots_title"
-diff --git a/src/com/android/launcher3/LauncherPrefs.kt b/src/com/android/launcher3/LauncherPrefs.kt
-index c624c35..56ea53f 100644
---- a/src/com/android/launcher3/LauncherPrefs.kt
-+++ b/src/com/android/launcher3/LauncherPrefs.kt
-@@ -268,6 +268,10 @@ constructor(@ApplicationContext private val encryptedContext: Context) {
-         @JvmField val SLEEP_GESTURE = backedUpItem("pref_sleep_gesture", false)
-         @JvmField val WORKSPACE_LOCK = backedUpItem("pref_workspace_lock", false)
-         @JvmField
-+        val RECENTS_FREEFORM_GESTURE = backedUpItem("pref_recents_freeform_gesture", false)
-+        @JvmField
-+        val RECENTS_FREEFORM_THRESHOLD = backedUpItem("pref_recents_freeform_threshold", "60")
-+        @JvmField
-         val PROMISE_ICON_IDS = nonRestorableItem(InstallSessionHelper.PROMISE_ICON_IDS, "")
-         @JvmField val WORK_EDU_STEP = backedUpItem("showed_work_profile_edu", 0)
-         @JvmField
--- 
-2.43.0
-
