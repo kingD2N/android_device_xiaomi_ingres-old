@@ -432,6 +432,43 @@ unpatch_gpu_driver() {
     fi
     rm -rf "${SRC:?}/$GPU_DIR"
 }
+# Blob V837 butuh DT_NEEDED yang tidak tercatat di shared_libs Android.bp vendor
+# (liblog, libnativewindow, libadreno_utils, ...) -> Soong 'check_elf_file' gagal.
+# Cek itu dimatikan hanya untuk modul yang blobnya kita timpa. $1=repo vendor, sisanya
+# path blob relatif ke repo. Android.bp dikembalikan lewat git checkout (unpatch_gpu_driver).
+gpu_relax_elf_check() {
+    python3 - "$@" <<'PYEOF'
+import re, sys
+repo, files = sys.argv[1], sys.argv[2:]
+p = repo + "/Android.bp"
+try:
+    s = open(p).read()
+except OSError:
+    sys.exit(0)
+blocks, depth, start = [], 0, None
+for i, c in enumerate(s):
+    if c == "{":
+        if depth == 0:
+            start = i
+        depth += 1
+    elif c == "}" and depth:
+        depth -= 1
+        if depth == 0:
+            blocks.append((start, i))
+edits = 0
+for bs, be in reversed(blocks):
+    t = s[bs:be]
+    if "check_elf_files" in t or not any(f in t for f in files):
+        continue
+    t2, n = re.subn(r'(\n[ \t]*name:[ \t]*"[^"]*",)', r'\1\n    check_elf_files: false,', t, count=1)
+    if n:
+        s = s[:bs] + t2 + s[be:]
+        edits += 1
+if edits:
+    open(p, "w").write(s)
+print(edits)
+PYEOF
+}
 fix_gpu_driver() {
     unpatch_gpu_driver
     [ "${GPU_DRIVER:-}" = off ] && { info "Driver GPU V837: dimatikan (GPU_DRIVER=off)"; return 0; }
@@ -460,6 +497,16 @@ fix_gpu_driver() {
         err "Driver GPU V837: tidak ada blob Adreno yang cocok di vendor/xiaomi, dilewati"
         rm -rf "$tmp"; return 0
     fi
+    local repo m rels
+    for repo in $(sed 's#^\(vendor/xiaomi/[^/]*\)/.*#\1#' "$GPU_LIST" | sort -u); do
+        rels=$(grep "^$repo/" "$GPU_LIST" | sed "s#^$repo/##")
+        # shellcheck disable=SC2086
+        m=$(gpu_relax_elf_check "$repo" $rels) || m=0
+        if [ "${m:-0}" -gt 0 ] 2>/dev/null; then
+            echo "$repo/Android.bp" >> "$GPU_LIST"
+            info "Driver GPU V837: cek ELF Soong dimatikan untuk $m modul di $repo"
+        fi
+    done
     mkdir -p "$GPU_DIR"
     cp -f "$tmp/qgl_config.txt" "$GPU_DIR/qgl_config.txt"
     cat > "$GPU_DIR/init.ingres_gpu.rc" <<'RC'
