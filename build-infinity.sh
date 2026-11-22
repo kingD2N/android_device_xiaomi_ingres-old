@@ -483,16 +483,21 @@ fix_gpu_driver() {
     if ! unzip -q -o "$zip" 'lib/*' 'lib64/*' qgl_config.txt -d "$tmp"; then
         err "Zip driver GPU rusak/tidak terbaca: $zip (dilewati)"; rm -rf "$tmp"; return 0
     fi
-    local rel dst n=0 miss=""
+    # gpu/kbc (bytecode compute, hanya ada di varian A) - opsional
+    unzip -q -o "$zip" 'gpu/*' -d "$tmp" >/dev/null 2>&1 || true
+    local rel dst n=0 miss="" newgpu=""
     while IFS= read -r f; do
         rel="${f#"$tmp"/}"
         dst=$(find vendor/xiaomi -type f -path "*/proprietary/vendor/$rel" 2>/dev/null | head -n 1)
         if [ -n "$dst" ]; then
             cp -f "$f" "$dst" && { echo "$dst" >> "$GPU_LIST"; n=$((n+1)); }
         else
-            miss="$miss $rel"
+            case "$rel" in
+                gpu/*) newgpu="$newgpu $rel" ;;   # belum ada di repo vendor -> ditambah lewat gpu.mk
+                *)     miss="$miss $rel" ;;
+            esac
         fi
-    done < <(find "$tmp/lib64" "$tmp/lib" -type f 2>/dev/null | sort)
+    done < <(find "$tmp/lib64" "$tmp/lib" "$tmp/gpu" -type f 2>/dev/null | sort)
     if [ "$n" -eq 0 ]; then
         err "Driver GPU V837: tidak ada blob Adreno yang cocok di vendor/xiaomi, dilewati"
         rm -rf "$tmp"; return 0
@@ -522,8 +527,14 @@ PRODUCT_COPY_FILES += \
     vendor/ingres/gpu/qgl_config.txt:$(TARGET_COPY_OUT_VENDOR)/etc/qgl_config.txt \
     vendor/ingres/gpu/init.ingres_gpu.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.ingres_gpu.rc
 MK
+    for rel in $newgpu; do
+        mkdir -p "$GPU_DIR/$(dirname "$rel")"
+        cp -f "$tmp/$rel" "$GPU_DIR/$rel"
+        printf 'PRODUCT_COPY_FILES += vendor/ingres/gpu/%s:$(TARGET_COPY_OUT_VENDOR)/%s\n' "$rel" "$rel" >> "$GPU_DIR/gpu.mk"
+    done
     rm -rf "$tmp"
     info "Driver GPU V837: $n blob ditimpa dari $(basename "$zip")"
+    [ -n "$newgpu" ] && info "  ditambahkan baru ke vendor:$newgpu"
     [ -n "$miss" ] && info "  tidak ada di vendor repo (dilewati):$miss"
     return 0
 }
