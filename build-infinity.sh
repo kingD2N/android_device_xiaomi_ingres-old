@@ -527,11 +527,38 @@ PRODUCT_COPY_FILES += \
     vendor/ingres/gpu/qgl_config.txt:$(TARGET_COPY_OUT_VENDOR)/etc/qgl_config.txt \
     vendor/ingres/gpu/init.ingres_gpu.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.ingres_gpu.rc
 MK
+    # File ELF (.so) tidak boleh lewat PRODUCT_COPY_FILES (Soong: "found ELF prebuilt in PRODUCT_COPY_FILES"),
+    # jadi dideklarasikan sebagai cc_prebuilt_library_shared dan dimasukkan lewat PRODUCT_PACKAGES.
+    # File non-ELF (gpu/kbc) tetap lewat PRODUCT_COPY_FILES.
+    local b name has32 has64 pkgs=""
     for rel in $newgpu; do
         mkdir -p "$GPU_DIR/$(dirname "$rel")"
         cp -f "$tmp/$rel" "$GPU_DIR/$rel"
-        printf 'PRODUCT_COPY_FILES += vendor/ingres/gpu/%s:$(TARGET_COPY_OUT_VENDOR)/%s\n' "$rel" "$rel" >> "$GPU_DIR/gpu.mk"
+        case "$rel" in
+            lib/*.so|lib64/*.so) ;;
+            *) printf 'PRODUCT_COPY_FILES += vendor/ingres/gpu/%s:$(TARGET_COPY_OUT_VENDOR)/%s\n' "$rel" "$rel" >> "$GPU_DIR/gpu.mk" ;;
+        esac
     done
+    : > "$GPU_DIR/Android.bp"
+    for b in $(for rel in $newgpu; do case "$rel" in lib/*.so|lib64/*.so) basename "$rel" ;; esac; done | sort -u); do
+        name="${b%.so}"; has32=""; has64=""
+        case " $newgpu " in *" lib/$b "*)   has32=1 ;; esac
+        case " $newgpu " in *" lib64/$b "*) has64=1 ;; esac
+        {
+            printf 'cc_prebuilt_library_shared {\n    name: "%s",\n    vendor: true,\n    check_elf_files: false,\n    strip: { none: true },\n' "$name"
+            if [ -n "$has32" ] && [ -n "$has64" ]; then
+                printf '    compile_multilib: "both",\n    arch: {\n        arm: { srcs: ["lib/%s"] },\n        arm64: { srcs: ["lib64/%s"] },\n    },\n' "$b" "$b"
+            elif [ -n "$has64" ]; then
+                printf '    compile_multilib: "64",\n    srcs: ["lib64/%s"],\n' "$b"
+            else
+                printf '    compile_multilib: "32",\n    srcs: ["lib/%s"],\n' "$b"
+            fi
+            printf '}\n\n'
+        } >> "$GPU_DIR/Android.bp"
+        pkgs="$pkgs $name"
+    done
+    [ -n "$pkgs" ] && printf 'PRODUCT_PACKAGES +=%s\n' "$pkgs" >> "$GPU_DIR/gpu.mk"
+    [ -s "$GPU_DIR/Android.bp" ] || rm -f "$GPU_DIR/Android.bp"
     rm -rf "$tmp"
     info "Driver GPU V837: $n blob ditimpa dari $(basename "$zip")"
     [ -n "$newgpu" ] && info "  ditambahkan baru ke vendor:$newgpu"
