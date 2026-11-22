@@ -490,6 +490,11 @@ fix_gpu_driver() {
         rel="${f#"$tmp"/}"
         dst=$(find vendor/xiaomi -type f -path "*/proprietary/vendor/$rel" 2>/dev/null | head -n 1)
         if [ -n "$dst" ]; then
+            # simpan versi stok backend OpenCL sebelum ditimpa (untuk stack OpenCL khusus kamera)
+            case "$rel" in
+                lib64/libCB.so|lib64/libgsl.so|lib64/libadreno_utils.so)
+                    mkdir -p "$tmp/.stock" && cp -f "$dst" "$tmp/.stock/${rel#lib64/}" ;;
+            esac
             cp -f "$f" "$dst" && { echo "$dst" >> "$GPU_LIST"; n=$((n+1)); }
         else
             case "$rel" in
@@ -557,6 +562,27 @@ MK
         } >> "$GPU_DIR/Android.bp"
         pkgs="$pkgs $name"
     done
+    # Stack OpenCL khusus kamera: kalau zip tidak membawa libOpenCL.so sendiri (varian B), libOpenCL stok
+    # tidak cocok dengan libCB/libgsl V837 -> MIUI Camera "No OpenCL devices found". Hanya proses camera
+    # provider yang diarahkan ke salinan stok di /vendor/lib64/camera_cl; GPU sistem tetap V837.
+    local camrc
+    if [ "${GPU_CAMCL:-}" != off ] && [ ! -f "$tmp/lib64/libOpenCL.so" ] && [ -d "$tmp/.stock" ]; then
+        camrc=$(find vendor/xiaomi -type f -path "*/proprietary/vendor/etc/init/vendor.qti.camera.provider@2.7-service_64.rc" 2>/dev/null | head -n 1)
+        if [ -n "$camrc" ] && grep -q '^service ' "$camrc"; then
+            mkdir -p "$GPU_DIR/camera_cl"
+            for b in "$tmp"/.stock/*.so; do
+                b=$(basename "$b"); name="${b%.so}"
+                cp -f "$tmp/.stock/$b" "$GPU_DIR/camera_cl/$b"
+                printf 'cc_prebuilt_library_shared {\n    name: "%s_camcl",\n    stem: "%s",\n    vendor: true,\n    relative_install_path: "camera_cl",\n    check_elf_files: false,\n    strip: { none: true },\n    compile_multilib: "64",\n    srcs: ["camera_cl/%s"],\n}\n\n' "$name" "$name" "$b" >> "$GPU_DIR/Android.bp"
+                pkgs="$pkgs ${name}_camcl"
+            done
+            awk '{print} /^service /{print "    override"; print "    setenv LD_LIBRARY_PATH /vendor/lib64/camera_cl"}' "$camrc" > "$GPU_DIR/zz.ingres_camera_cl.rc"
+            printf 'PRODUCT_COPY_FILES += vendor/ingres/gpu/zz.ingres_camera_cl.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/zz.ingres_camera_cl.rc\n' >> "$GPU_DIR/gpu.mk"
+            info "  OpenCL stok khusus kamera:$(cd "$tmp/.stock" && printf ' %s' *.so) -> /vendor/lib64/camera_cl"
+        else
+            info "  rc camera provider tidak ditemukan, OpenCL khusus kamera dilewati"
+        fi
+    fi
     [ -n "$pkgs" ] && printf 'PRODUCT_PACKAGES +=%s\n' "$pkgs" >> "$GPU_DIR/gpu.mk"
     [ -s "$GPU_DIR/Android.bp" ] || rm -f "$GPU_DIR/Android.bp"
     rm -rf "$tmp"
