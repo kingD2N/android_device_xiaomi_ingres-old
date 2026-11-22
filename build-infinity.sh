@@ -493,8 +493,8 @@ fix_gpu_driver() {
             cp -f "$f" "$dst" && { echo "$dst" >> "$GPU_LIST"; n=$((n+1)); }
         else
             case "$rel" in
-                gpu/*) newgpu="$newgpu $rel" ;;   # belum ada di repo vendor -> ditambah lewat gpu.mk
-                *)     miss="$miss $rel" ;;
+                */hw/*) miss="$miss $rel" ;;      # HAL 32-bit (vulkan) tidak ada di ROM 64-bit, dilewati
+                *)      newgpu="$newgpu $rel" ;;  # belum ada di repo vendor (mis. libOpenCL_adreno) -> ditambah lewat gpu.mk
             esac
         fi
     done < <(find "$tmp/lib64" "$tmp/lib" "$tmp/gpu" -type f 2>/dev/null | sort)
