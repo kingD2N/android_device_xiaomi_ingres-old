@@ -15,6 +15,9 @@ $(call inherit-product, vendor/xiaomi/ingres/ingres-vendor.mk)
 INGRES_ADDONS_ROM := los
 $(call inherit-product-if-exists, vendor/ingres/addons/addons.mk)
 
+# Driver GPU V837 (eksperimen): dibuat oleh build-infinity.sh bila ada zip di ~/gpu
+$(call inherit-product-if-exists, vendor/ingres/gpu/gpu.mk)
+
 # SELinux Treble Labeling (Android 17): label app GameKeys/MIUI Camera/Dolby dari
 # paket tambahan ada di sepolicy vendor; laporkan sebagai peringatan saja
 PRODUCT_ENFORCE_SELINUX_TREBLE_LABELING := false

@@ -333,8 +333,103 @@ unpatch_per_app_refresh_rate() {
     fi
 }
 
+# Launcher3 bawaan: geser ke atas dari aplikasi melewati batas (ada getar), lepas ->
+# aplikasi dibuka sebagai gelembung (bubble). Pengaturan ada di Setelan Layar utama.
+# Tambalan dijaga: kalau Launcher3 Infinity X tidak cocok, dilewati dengan pesan jelas.
+L3_DIR=packages/apps/Launcher3
+L3_PATCH="$SRC/device/xiaomi/ingres/patches/launcher3/0001-recents-freeform-gesture.patch"
+fix_launcher3_bubble() {
+    [ -f "$L3_PATCH" ] || return 0
+    if [ ! -f "$L3_DIR/quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java" ]; then
+        err "Launcher3 bawaan tidak punya quickstep/AbsSwipeUpHandler, gelembung geser-atas dilewati"
+        return 0
+    fi
+    if ! git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null \
+        && grep -rqsE 'class (RecentsFreeformGesture|BubbleSwipe)' "$L3_DIR/quickstep/src" 2>/dev/null; then
+        info "Gelembung geser-atas: Launcher3 ini sudah punya sendiri, tambalan dilewati"
+        return 0
+    fi
+    apply_tree_patch "$L3_DIR" "$L3_PATCH" \
+        quickstep/src/com/android/quickstep/AbsSwipeUpHandler.java \
+        "Launcher3 geser ke atas -> gelembung aplikasi"
+}
+unpatch_launcher3_bubble() {
+    if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
+        git -C "$L3_DIR" apply -R "$L3_PATCH" || true
+    fi
+}
+
+# EKSPERIMEN: driver GPU Adreno V837.0.9 ditanam langsung ke image vendor.
+# Zip diambil dari ~/gpu (atau GPU_ZIP=/path/zip); varian B (grafis saja) diutamakan.
+# Tidak ada zip / GPU_DRIVER=off -> build normal. Blob stok di repo vendor ditimpa
+# di tempat (dikembalikan lewat git checkout sebelum sync / build berikutnya).
+GPU_DIR=vendor/ingres/gpu
+GPU_LIST="$SRC/.gpu_replaced"
+unpatch_gpu_driver() {
+    local p repo
+    if [ -f "$GPU_LIST" ]; then
+        while IFS= read -r p; do
+            [ -n "$p" ] || continue
+            repo=$(echo "$p" | cut -d/ -f1-3)
+            git -C "$repo" checkout -q -- "${p#"$repo"/}" 2>/dev/null || true
+        done < "$GPU_LIST"
+        rm -f "$GPU_LIST"
+    fi
+    rm -rf "${SRC:?}/$GPU_DIR"
+}
+fix_gpu_driver() {
+    unpatch_gpu_driver
+    [ "${GPU_DRIVER:-}" = off ] && { info "Driver GPU V837: dimatikan (GPU_DRIVER=off)"; return 0; }
+    local zip="${GPU_ZIP:-}" f
+    if [ -z "$zip" ]; then
+        for f in "$HOME"/gpu/*B_grafis_saja*.zip "$HOME"/gpu/*A_lengkap*.zip; do
+            [ -f "$f" ] && { zip="$f"; break; }
+        done
+    fi
+    [ -n "$zip" ] && [ -f "$zip" ] || return 0
+    local tmp; tmp=$(mktemp -d) || return 0
+    if ! unzip -q -o "$zip" 'lib/*' 'lib64/*' qgl_config.txt -d "$tmp"; then
+        err "Zip driver GPU rusak/tidak terbaca: $zip (dilewati)"; rm -rf "$tmp"; return 0
+    fi
+    local rel dst n=0 miss=""
+    while IFS= read -r f; do
+        rel="${f#"$tmp"/}"
+        dst=$(find vendor/xiaomi -type f -path "*/proprietary/vendor/$rel" 2>/dev/null | head -n 1)
+        if [ -n "$dst" ]; then
+            cp -f "$f" "$dst" && { echo "$dst" >> "$GPU_LIST"; n=$((n+1)); }
+        else
+            miss="$miss $rel"
+        fi
+    done < <(find "$tmp/lib64" "$tmp/lib" -type f 2>/dev/null | sort)
+    if [ "$n" -eq 0 ]; then
+        err "Driver GPU V837: tidak ada blob Adreno yang cocok di vendor/xiaomi, dilewati"
+        rm -rf "$tmp"; return 0
+    fi
+    mkdir -p "$GPU_DIR"
+    cp -f "$tmp/qgl_config.txt" "$GPU_DIR/qgl_config.txt"
+    cat > "$GPU_DIR/init.ingres_gpu.rc" <<'RC'
+# qgl_config.txt untuk driver Adreno V837 (pengganti langkah TWRP: salin ke /data/vendor/gpu)
+on post-fs-data
+    mkdir /data/vendor/gpu 0771 system system
+    copy /vendor/etc/qgl_config.txt /data/vendor/gpu/qgl_config.txt
+    chmod 0644 /data/vendor/gpu/qgl_config.txt
+    restorecon /data/vendor/gpu/qgl_config.txt
+RC
+    cat > "$GPU_DIR/gpu.mk" <<'MK'
+PRODUCT_COPY_FILES += \
+    vendor/ingres/gpu/qgl_config.txt:$(TARGET_COPY_OUT_VENDOR)/etc/qgl_config.txt \
+    vendor/ingres/gpu/init.ingres_gpu.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.ingres_gpu.rc
+MK
+    rm -rf "$tmp"
+    info "Driver GPU V837: $n blob ditimpa dari $(basename "$zip")"
+    [ -n "$miss" ] && info "  tidak ada di vendor repo (dilewati):$miss"
+    return 0
+}
+
 unpatch_source() {
     unpatch_per_app_refresh_rate
+    unpatch_launcher3_bubble
+    unpatch_gpu_driver
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     local v
@@ -344,6 +439,8 @@ unpatch_source() {
 }
 patch_source() {
     fix_per_app_refresh_rate
+    fix_launcher3_bubble
+    fix_gpu_driver
     fix_fsgen_dupes
     fix_dolby_vision
     fix_gamekey
