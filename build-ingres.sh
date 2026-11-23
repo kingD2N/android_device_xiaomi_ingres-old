@@ -566,7 +566,7 @@ set_maintainer() {
 # SIGN=0 = build test-keys bawaan LineageOS.
 KEYS_DIR="${KEYS_DIR:-$HOME/.ingres-keys}"
 KEY_NAMES="releasekey platform shared media networkstack sdk_sandbox bluetooth nfc verity testkey cyngn-app testcert"
-KEY_SUBJECT="/C=ID/ST=Indonesia/L=Indonesia/O=$MAINTAINER/OU=$MAINTAINER/CN=$MAINTAINER/emailAddress=114895723+kingD2N@users.noreply.github.com"
+KEY_SUBJECT="/C=ID/ST=Indonesia/L=Indonesia/O=$MAINTAINER/OU=$MAINTAINER/CN=$MAINTAINER"
 setup_signing() {
     local priv=vendor/lineage-priv/keys k made=0
     if [ "${SIGN:-1}" = 0 ]; then
@@ -583,9 +583,11 @@ setup_signing() {
     for k in $KEY_NAMES; do
         [ -f "$KEYS_DIR/$k.pk8" ] && [ -f "$KEYS_DIR/$k.x509.pem" ] && continue
         rm -f "$KEYS_DIR/$k.pk8" "$KEYS_DIR/$k.x509.pem"
-        # tanpa password: make_key membaca satu baris kosong dari stdin
-        if ! echo | development/tools/make_key "$KEYS_DIR/$k" "$KEY_SUBJECT" >/dev/null 2>&1 \
-                || ! [ -f "$KEYS_DIR/$k.pk8" ]; then
+        # tanpa password: make_key membaca satu baris kosong dari stdin.
+        # make_key menolak path yang mengandung titik (mis. ".ingres-keys"), jadi dijalankan
+        # dari dalam folder kunci dengan nama kunci saja.
+        (cd "$KEYS_DIR" && echo | "$SRC/development/tools/make_key" "$k" "$KEY_SUBJECT") >/dev/null 2>&1
+        if ! [ -s "$KEYS_DIR/$k.pk8" ] || ! [ -s "$KEYS_DIR/$k.x509.pem" ]; then
             err "Gagal membuat kunci $k, ROM tetap test-keys"
             return 0
         fi
