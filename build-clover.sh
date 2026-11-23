@@ -19,6 +19,7 @@
 #   CLOVER_MAINTAINER=nama  nama maintainer di info ROM (default: kingD2N)
 #   VARIANT=both       build user lalu userdebug sekaligus (hasil userdebug diberi akhiran -userdebug)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
+#   AOD_FADE_MS=500    lama AOD memudar sebelum layar mati, ms (0 = tanpa, perilaku asli)
 #   SIGN=0             kunci bawaan ROM (default: tanda tangan kingD2N = kunci LineageOS, ~/.ingres-keys)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -103,7 +104,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' CLOVER_MAINTAINER='${CLOVER_MAINTAINER:-kingD2N}' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' CLOVER_MAINTAINER='${CLOVER_MAINTAINER:-kingD2N}' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -258,12 +259,87 @@ unfix_lineage_interfaces() {
 }
 
 unpatch_source() {
+    unpatch_aod_fade
     unpatch_signing
     unfix_lineage_interfaces
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
 }
+# AOD memudar halus sebelum layar mati (gaya HyperOS), mis. saat batas waktu/jadwal AOD habis.
+# Sama dengan tambalan AxionOS yang sudah diuji; dilewati otomatis bila source ROM berbeda.
+# AOSP: ScrimState.OFF tidak beranimasi bila asalnya AOD, dan AOD memakai DOZE_SUSPEND
+# (layar membeku) sehingga animasi tidak tergambar. Tambalan: layar dipindah ke DOZE selama
+# pemudaran (wakelock dipegang), scrim memudar AOD_FADE_MS, lalu layar OFF.
+# AOD_FADE_MS=0 = tanpa tambalan (perilaku asli).
+AOD_FADE_MS="${AOD_FADE_MS:-500}"
+AOD_SCRIM=frameworks/base/packages/SystemUI/src/com/android/systemui/statusbar/phone/ScrimState.java
+AOD_DSS=frameworks/base/packages/SystemUI/src/com/android/systemui/doze/DozeScreenState.java
+unpatch_aod_fade() {
+    git -C frameworks/base checkout -q -- "${AOD_SCRIM#frameworks/base/}" "${AOD_DSS#frameworks/base/}" 2>/dev/null || true
+}
+fix_aod_fade() {
+    case "$AOD_FADE_MS" in ''|*[!0-9]*) err "AOD_FADE_MS harus angka (ms)"; return 0 ;; esac
+    [ "$AOD_FADE_MS" -gt 0 ] || return 0
+    [ -d frameworks/base/packages/SystemUI ] || return 0   # source belum disinkron
+    [ -f "$AOD_SCRIM" ] && [ -f "$AOD_DSS" ] || { err "AOD halus: file SystemUI tidak ditemukan, dilewati"; return 0; }
+    unpatch_aod_fade
+    if python3 - "$AOD_SCRIM" "$AOD_DSS" "$AOD_FADE_MS" <<'PY'
+import sys
+scrim, dss, ms = sys.argv[1], sys.argv[2], sys.argv[3]
+s = open(scrim).read()
+old = """            if (previousState == AOD) {
+                mAnimateChange = false;
+            } else {
+                mAnimationDuration = ScrimController.ANIMATION_DURATION_LONG;
+            }"""
+new = """            // ingres: AOD memudar halus sebelum layar mati
+            mAnimateChange = true;
+            if (previousState == AOD) {
+                mAnimationDuration = %s;
+            } else {
+                mAnimationDuration = ScrimController.ANIMATION_DURATION_LONG;
+            }""" % ms
+if s.count(old) != 1: sys.exit("ScrimState.OFF tidak cocok")
+open(scrim, "w").write(s.replace(old, new))
+d = open(dss).read()
+reps = [
+ ("    private SettableWakeLock mWakeLock;\n",
+  "    private SettableWakeLock mWakeLock;\n    private SettableWakeLock mFadeWakeLock;\n"),
+ ("        mWakeLock = new SettableWakeLock(wakeLock, TAG);\n",
+  "        mWakeLock = new SettableWakeLock(wakeLock, TAG);\n        mFadeWakeLock = new SettableWakeLock(wakeLock, TAG + \"Fade\");\n"),
+ ("        mDozeHost.cancelGentleSleep();\n",
+  "        mDozeHost.cancelGentleSleep();\n        mFadeWakeLock.setAcquired(false);\n"),
+ ("""            } else {
+                mDozeHost.prepareForGentleSleep(() -> applyScreenState(screenState));
+            }""",
+  """            } else if (oldState == DOZE_AOD && newState == DOZE) {
+                // ingres: DOZE_SUSPEND membekukan layar; pindah ke DOZE agar pemudaran AOD
+                // tergambar, lalu matikan layar setelah scrim selesai memudar.
+                applyScreenState(Display.STATE_DOZE);
+                mFadeWakeLock.setAcquired(true);
+                mDozeHost.prepareForGentleSleep(() -> {
+                    applyScreenState(screenState);
+                    mFadeWakeLock.setAcquired(false);
+                });
+            } else {
+                mDozeHost.prepareForGentleSleep(() -> applyScreenState(screenState));
+            }"""),
+]
+for o, n in reps:
+    if d.count(o) != 1: sys.exit("DozeScreenState tidak cocok: " + o.strip()[:50])
+    d = d.replace(o, n)
+open(dss, "w").write(d)
+PY
+    then
+        info "Tambalan: AOD memudar halus ${AOD_FADE_MS} ms sebelum layar mati"
+    else
+        unpatch_aod_fade
+        err "AOD halus: source SystemUI berubah, tambalan dilewati (ROM tetap bisa di-build)"
+    fi
+    return 0
+}
 patch_source() {
+    fix_aod_fade
     fix_lineage_interfaces
     fix_dolby_vision
     fix_gamekey
