@@ -18,6 +18,7 @@
 #   GAPPS=1            build dengan GApps (default, dari Evolution-X vendor_gms)
 #   GAPPS=0            build vanilla tanpa GApps
 #   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
+#   GOOGLE_SETUP=1     tetap pasang Pixel/Google Setup (default: dibuang, crash di LOS 24)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -98,7 +99,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GOOGLE_SETUP='${GOOGLE_SETUP:-0}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -292,6 +293,24 @@ verify_gms_launcher() {
     return 0
 }
 
+# Pixel Setup (SetupWizardPixelPrebuilt) dari vendor_gms Evolution-X crash di LineageOS 24
+# ("Pixel Setup keeps stopping" saat boot pertama). Paket setup Google dibuang dari daftar GApps,
+# sama seperti yang dilakukan zip debloat; setup awal ditangani LineageSetupWizard.
+# Akun Google tetap bisa ditambahkan lewat Setelan. GOOGLE_SETUP=1 = tetap pakai setup Google.
+GMS_SUW_RE='^[[:space:]]*(SetupWizardPixelPrebuilt|SetupWizardPrebuilt|PartnerSetupPrebuilt)[_A-Za-z0-9.-]*[[:space:]]*(\\)?$'
+fix_gms_setupwizard() {
+    [ "${GOOGLE_SETUP:-0}" = 1 ] && return 0
+    local f n
+    for f in vendor/gms/gms*.mk; do
+        [ -f "$f" ] || continue
+        n=$(grep -cE "$GMS_SUW_RE" "$f")
+        [ "$n" -gt 0 ] || continue
+        sed -i -E "/$GMS_SUW_RE/d" "$f"
+        info "Tambalan: Pixel/Google Setup dibuang dari $(basename "$f") ($n paket, setup awal pakai LineageSetupWizard)"
+    done
+    return 0
+}
+
 # APK yang tidak terdaftar di .gitattributes vendor_gms ter-checkout sebagai pointer LFS
 # (mis. AmbientStreaming): unduh isinya, kalau gagal keluarkan dari daftar paket.
 fix_gms_lfs() {
@@ -427,6 +446,7 @@ patch_source() {
     # fix_launcher3_bubble  # dimatikan: gestur gelembung hanya dipasang di AxionOS, EvoX, RROS
     fix_package_installer
     fix_gms_launcher
+    fix_gms_setupwizard
     fix_gms_lfs
 }
 
