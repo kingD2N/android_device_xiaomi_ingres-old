@@ -18,6 +18,7 @@
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
+#   BOOTLOG=1          build pelacak bootloop: userdebug + logcat tersimpan di /data/misc/logd (ambil via TWRP)
 #   SIGN=0             kunci bawaan ROM (default: tanda tangan kingD2N = kunci LineageOS, ~/.ingres-keys)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -32,6 +33,8 @@ ROM_MANIFEST="https://github.com/ProjectInfinity-X/manifest"; ROM_BRANCH="17"
 REPO_ARGS=(--no-repo-verify -g default,-mips,-darwin,-notdefault)
 SRC="${SRC:-$HOME/infinity}"
 VARIANT="${VARIANT:-user}"
+# BOOTLOG=1: build pelacak bootloop (userdebug + logcat disimpan ke /data/misc/logd)
+[ "${BOOTLOG:-0}" = 1 ] && VARIANT=userdebug
 SESSION="infinity"
 LOG="$HOME/build-infinity.log"
 MANIFEST_URL="https://raw.githubusercontent.com/kingD2N/android_device_xiaomi_ingres-old/infinity-17/local_manifests/infinity.xml"
@@ -109,7 +112,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}' GAPPS='${GAPPS:-1}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' BOOTLOG='${BOOTLOG:-0}' GPU_DRIVER='${GPU_DRIVER:-}' GPU_ZIP='${GPU_ZIP:-}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}' GAPPS='${GAPPS:-1}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -809,7 +812,7 @@ sign_priv_dir() {   # folder kunci yang dibaca konfigurasi ROM, mis. vendor/line
         | sort | uniq -c | sort -rn | awk 'NR==1 {print $2}' || true
 }
 unpatch_signing() {
-    [ -f "$SIGN_DEVMK" ] && sed -i "/$SIGN_MARK\$/d" "$SIGN_DEVMK"
+    [ -f "$SIGN_DEVMK" ] && sed -i -e "/$SIGN_MARK\$/d" -e '/# ingres-bootlog$/d' "$SIGN_DEVMK"
     return 0
 }
 setup_signing() {
@@ -882,6 +885,19 @@ do_build() {
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     setup_signing
+    if [ "${BOOTLOG:-0}" = 1 ] && [ -f "$SIGN_DEVMK" ]; then
+        # logcatd (hanya ada di userdebug) menulis log sejak boot ke /data/misc/logd, tetap ada
+        # setelah bootloop dan bisa diambil dari TWRP. Dibuang lagi oleh unpatch_signing.
+        sed -i -e '$a\' "$SIGN_DEVMK"
+        cat >> "$SIGN_DEVMK" <<'BLEOF'
+PRODUCT_SYSTEM_PROPERTIES += persist.logd.logpersistd=logcatd # ingres-bootlog
+PRODUCT_SYSTEM_PROPERTIES += persist.logd.logpersistd.enable=true # ingres-bootlog
+PRODUCT_SYSTEM_PROPERTIES += logd.logpersistd.enable=true # ingres-bootlog
+PRODUCT_SYSTEM_PROPERTIES += persist.logd.logpersistd.size=64 # ingres-bootlog
+PRODUCT_SYSTEM_PROPERTIES += persist.logd.logpersistd.buffer=all # ingres-bootlog
+BLEOF
+        info "BOOTLOG=1: build userdebug, logcat sejak boot disimpan di /data/misc/logd"
+    fi
     set +u   # envsetup.sh / lunch memakai variabel yang belum diisi
     local start rc
     start=$(date +%s)
