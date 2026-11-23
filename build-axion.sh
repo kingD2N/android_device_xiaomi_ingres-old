@@ -19,6 +19,7 @@
 #   GAPPS=gms          GApps lengkap (default)
 #   GAPPS=pico         GApps minimal / GAPPS=core  GApps inti / GAPPS=0  vanilla
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
+#   SIGN=0             kunci acak AxionOS lama (default: kunci kingD2N yang sama dgn LineageOS, ~/.ingres-keys)
 #   AOD_FADE_MS=500    lama AOD memudar sebelum layar mati, ms (0 = tanpa, perilaku asli)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -101,7 +102,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-gms}' DECRYPT='${DECRYPT:-1}' AOD_FADE_MS='${AOD_FADE_MS:-500}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-gms}' DECRYPT='${DECRYPT:-1}' AOD_FADE_MS='${AOD_FADE_MS:-500}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -501,6 +502,53 @@ fix_kernel_headers() {
 }
 
 # ----------------------------------------------------------------- build
+# --------------------------------------------- tanda tangan kingD2N
+# AxionOS ditandatangani kunci pribadi yang SAMA dengan LineageOS 24 (~/.ingres-keys), disimpan
+# di luar source supaya tidak hilang saat sync ulang dan tidak pernah masuk GitHub.
+# Kunci yang belum ada (mis. verifiedboot khusus AxionOS) dibuat sekali di folder yang sama.
+# SIGN=0 = cara lama: kunci acak AxionOS (gk -s) di dalam source.
+KEYS_DIR="${KEYS_DIR:-$HOME/.ingres-keys}"
+AX_KEY_NAMES="releasekey platform shared media networkstack sdk_sandbox bluetooth nfc verity testkey cyngn-app testcert verifiedboot"
+KEY_SUBJECT="/C=ID/ST=Indonesia/L=Indonesia/O=kingD2N/OU=kingD2N/CN=kingD2N"
+use_ingres_keys() {
+    local k made=0 top="$PWD" priv="$PWD/vendor/lineage-priv/keys"
+    mkdir -p "$KEYS_DIR" && chmod 700 "$KEYS_DIR"
+    for k in $AX_KEY_NAMES; do
+        [ -s "$KEYS_DIR/$k.pk8" ] && [ -s "$KEYS_DIR/$k.x509.pem" ] && continue
+        rm -f "$KEYS_DIR/$k.pk8" "$KEYS_DIR/$k.x509.pem"
+        # make_key menolak path bertitik (".ingres-keys"): jalankan dari dalam folder kunci
+        (cd "$KEYS_DIR" && echo | "$top/development/tools/make_key" "$k" "$KEY_SUBJECT") >/dev/null 2>&1
+        [ -s "$KEYS_DIR/$k.pk8" ] && [ -s "$KEYS_DIR/$k.x509.pem" ] \
+            || { err "Gagal membuat kunci $k di $KEYS_DIR"; exit 1; }
+        made=$((made+1))
+    done
+    chmod 600 "$KEYS_DIR"/* 2>/dev/null
+    rm -rf "$priv" && mkdir -p "$priv"
+    for k in $AX_KEY_NAMES; do
+        cp -f "$KEYS_DIR/$k.pk8" "$KEYS_DIR/$k.x509.pem" "$priv/"
+    done
+    {
+        echo 'PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/lineage-priv/keys/releasekey'
+        echo 'PRODUCT_MAINLINE_SEPOLICY_DEV_CERTIFICATES := $(dir $(PRODUCT_DEFAULT_DEV_CERTIFICATE))'
+        echo 'PRODUCT_MAINLINE_BLUETOOTH_SEPOLICY_DEV_CERTIFICATES := $(dir $(PRODUCT_DEFAULT_DEV_CERTIFICATE))'
+    } > "$priv/keys.mk"
+    cat > "$priv/BUILD.bazel" <<'BZL'
+filegroup(
+    name = "android_certificate_directory",
+    srcs = glob([
+        "*.pk8",
+        "*.pem",
+    ]),
+    visibility = ["//visibility:public"],
+)
+BZL
+    if [ "$made" -gt 0 ]; then
+        info "Tanda tangan kingD2N: $made kunci baru dibuat di $KEYS_DIR (backup ulang folder ini!)"
+    else
+        info "Tanda tangan kingD2N: pakai kunci LineageOS dari $KEYS_DIR"
+    fi
+}
+
 do_build() {
     cd "$SRC" 2>/dev/null && [ -f build/envsetup.sh ] || { err "Source belum ada. Jalankan: bash $SCRIPT sync"; exit 1; }
     if [ -d out/target/product/ingres ]; then check_disk 20; else check_disk 160; fi
@@ -535,7 +583,9 @@ do_build() {
     # gk membaca ANDROID_KEY_PATH; kalau kosong, kunci ditulis ke "/nfc.pk8" dst (Permission denied).
     # Hanya diisi kalau belum ada (variabel server tidak ditimpa).
     export ANDROID_KEY_PATH="${ANDROID_KEY_PATH:-$PWD/vendor/lineage-priv/keys}"
-    if [ ! -f "$ANDROID_KEY_PATH/releasekey.pk8" ]; then
+    if [ "${SIGN:-1}" != 0 ]; then
+        use_ingres_keys
+    elif [ ! -f "$ANDROID_KEY_PATH/releasekey.pk8" ]; then
         info "Membuat kunci tanda tangan (gk -s) di $ANDROID_KEY_PATH"
         mkdir -p "$ANDROID_KEY_PATH"
         gk -s >/dev/null || { err "gk -s gagal membuat kunci"; exit 1; }
