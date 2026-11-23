@@ -19,6 +19,9 @@
 #   GAPPS=0            build vanilla tanpa GApps
 #   GAPPS=both         build dua-duanya berurutan (GApps lalu vanilla)
 #   GOOGLE_SETUP=1     tetap pasang Pixel/Google Setup (default: dibuang, crash di LOS 24)
+#   MAINTAINER=nama    nama maintainer di versi ROM & nama zip (default: kingD2N)
+#   SIGN=0             build test-keys (default: ditandatangani kunci pribadi di ~/.ingres-keys)
+#   KEYS_DIR=folder    lokasi kunci pribadi (default: ~/.ingres-keys, BACKUP folder ini!)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -99,7 +102,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GOOGLE_SETUP='${GOOGLE_SETUP:-0}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GOOGLE_SETUP='${GOOGLE_SETUP:-0}' MAINTAINER='${MAINTAINER:-kingD2N}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' GAPPS='${GAPPS:-1}' DECRYPT='${DECRYPT:-1}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -544,6 +547,74 @@ fix_kernel_headers() {
     fi
 }
 
+# --------------------------------------------------------- tanda tangan
+# Nama maintainer: tampil di versi LineageOS (Setelan -> Tentang ponsel) dan nama zip
+# (lineage-24.0-<tanggal>-UNOFFICIAL-<nama>-ingres.zip), plus ro.build.user/host.
+MAINTAINER="${MAINTAINER:-kingD2N}"
+set_maintainer() {
+    export BUILD_USERNAME="$MAINTAINER" BUILD_HOSTNAME="$MAINTAINER"
+    if grep -rqs TARGET_UNOFFICIAL_BUILD_ID vendor/lineage/config/; then
+        export TARGET_UNOFFICIAL_BUILD_ID="$MAINTAINER"
+        info "Maintainer: $MAINTAINER (versi LineageOS & nama zip)"
+    else
+        info "Maintainer: $MAINTAINER (ro.build.user/host; versi LineageOS tidak mendukung nama tambahan)"
+    fi
+}
+# Kunci tanda tangan pribadi (release-keys). Disimpan di luar source ($KEYS_DIR) supaya
+# tidak ikut terhapus saat sync ulang, dan tidak pernah masuk ke GitHub.
+# SIMPAN CADANGAN folder ini: tanpa kunci yang sama, ROM berikutnya wajib clean flash.
+# SIGN=0 = build test-keys bawaan LineageOS.
+KEYS_DIR="${KEYS_DIR:-$HOME/.ingres-keys}"
+KEY_NAMES="releasekey platform shared media networkstack sdk_sandbox bluetooth nfc verity testkey cyngn-app testcert"
+KEY_SUBJECT="/C=ID/ST=Indonesia/L=Indonesia/O=$MAINTAINER/OU=$MAINTAINER/CN=$MAINTAINER/emailAddress=114895723+kingD2N@users.noreply.github.com"
+setup_signing() {
+    local priv=vendor/lineage-priv/keys k made=0
+    if [ "${SIGN:-1}" = 0 ]; then
+        rm -rf vendor/lineage-priv
+        info "Tanda tangan: test-keys bawaan (SIGN=0)"
+        return 0
+    fi
+    if ! grep -rqs 'lineage-priv/keys/keys.mk' vendor/lineage/; then
+        err "vendor/lineage tidak membaca vendor/lineage-priv/keys/keys.mk, ROM tetap test-keys"
+        return 0
+    fi
+    [ -x development/tools/make_key ] || { err "development/tools/make_key tidak ada, ROM tetap test-keys"; return 0; }
+    mkdir -p "$KEYS_DIR" && chmod 700 "$KEYS_DIR"
+    for k in $KEY_NAMES; do
+        [ -f "$KEYS_DIR/$k.pk8" ] && [ -f "$KEYS_DIR/$k.x509.pem" ] && continue
+        rm -f "$KEYS_DIR/$k.pk8" "$KEYS_DIR/$k.x509.pem"
+        # tanpa password: make_key membaca satu baris kosong dari stdin
+        if ! echo | development/tools/make_key "$KEYS_DIR/$k" "$KEY_SUBJECT" >/dev/null 2>&1 \
+                || ! [ -f "$KEYS_DIR/$k.pk8" ]; then
+            err "Gagal membuat kunci $k, ROM tetap test-keys"
+            return 0
+        fi
+        made=$((made+1))
+    done
+    chmod 600 "$KEYS_DIR"/* 2>/dev/null
+    rm -rf vendor/lineage-priv && mkdir -p "$priv"
+    for k in $KEY_NAMES; do
+        # disalin (bukan symlink): sandbox build tidak selalu bisa membaca di luar source
+        cp -f "$KEYS_DIR/$k.pk8" "$KEYS_DIR/$k.x509.pem" "$priv/"
+    done
+    echo 'PRODUCT_DEFAULT_DEV_CERTIFICATE := vendor/lineage-priv/keys/releasekey' > "$priv/keys.mk"
+    cat > "$priv/BUILD.bazel" <<'BZL'
+filegroup(
+    name = "android_certificate_directory",
+    srcs = glob([
+        "*.pk8",
+        "*.pem",
+    ]),
+    visibility = ["//visibility:public"],
+)
+BZL
+    if [ "$made" -gt 0 ]; then
+        info "Tanda tangan: $made kunci baru dibuat di $KEYS_DIR (backup folder ini!)"
+    else
+        info "Tanda tangan: pakai kunci pribadi dari $KEYS_DIR"
+    fi
+}
+
 # ----------------------------------------------------------------- build
 do_build() {
     cd "$SRC" 2>/dev/null && [ -f build/envsetup.sh ] || { err "Source belum ada. Jalankan: bash $SCRIPT sync"; exit 1; }
@@ -561,6 +632,8 @@ do_build() {
     patch_source
     verify_gms_launcher || exit 1
     fix_kernel_headers
+    set_maintainer
+    setup_signing
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     set +u   # envsetup.sh / breakfast memakai variabel yang belum diisi
