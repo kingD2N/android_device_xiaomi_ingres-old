@@ -19,8 +19,6 @@
 #   GAPPS=0            build vanilla tanpa GApps (default: dengan GApps)
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   AOD_FADE_MS=500    lama AOD memudar sebelum layar mati, ms (0 = tanpa, perilaku asli)
-#   KERNEL=mix         kernel MIX dari workflow Kernel_NoMount_ingres (hasil menu kernel terakhir)
-#   KERNEL_ZIP=<zip>   pakai zip AnyKernel3 tertentu (otomatis KERNEL=mix)
 #   BOOTLOG=1          build pelacak bootloop: userdebug + logcat tersimpan di /data/misc/logd (ambil via TWRP)
 #   SIGN=0             kunci bawaan ROM (default: tanda tangan kingD2N = kunci LineageOS, ~/.ingres-keys)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
@@ -115,7 +113,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' BOOTLOG='${BOOTLOG:-0}' KERNEL='${KERNEL:-lineage}' KERNEL_ZIP='${KERNEL_ZIP:-}' GPU_DRIVER='${GPU_DRIVER:-}' GPU_ZIP='${GPU_ZIP:-}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}' GAPPS='${GAPPS:-1}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' BOOTLOG='${BOOTLOG:-0}' GPU_DRIVER='${GPU_DRIVER:-}' GPU_ZIP='${GPU_ZIP:-}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}' GAPPS='${GAPPS:-1}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -858,85 +856,6 @@ fix_kernel_headers() {
     fi
 }
 
-# ---------------------------------------------- kernel MIX (workflow Kernel_NoMount_ingres)
-# KERNEL=mix: ROM memakai kernel hasil workflow kingD2N/Kernel_NoMount_ingres (Melt-MIX +
-# KernelSU/SuSFS/NoMount sesuai pilihan di menu kernel). Build kernelnya dulu lewat menu kernel:
-#   bash <(curl -fsSL https://raw.githubusercontent.com/kingD2N/Device_ingres_aospa/main/termius/kernel-menu.sh) build
-# Yang dipakai: Image dari zip AnyKernel3 hasil kernel terakhir (~/hasil-kernel/.terakhir), atau
-# KERNEL_ZIP=<zip>. ROM tetap dibuild normal (kernel LineageOS + modul vendor_dlkm), lalu kernel di
-# boot.img diganti Image MIX - sama seperti flash AnyKernel3 setelah ROM - dan zip OTA dibuat ulang
-# dari target-files (boot.img & vbmeta.img dibuat ulang, ditandatangani kunci yang sama).
-MIX_IMAGE=""
-pick_mix_kernel() {
-    local z last kdir="$SRC/out/ingres-mix"
-    [ -n "${KERNEL_ZIP:-}" ] && KERNEL=mix
-    [ "${KERNEL:-lineage}" = mix ] || return 0
-    z="${KERNEL_ZIP:-}"
-    if [ -z "$z" ]; then
-        last=$(cat "$HOME/hasil-kernel/.terakhir" 2>/dev/null)
-        [ -n "$last" ] && z=$(ls -t "$last"/*.zip 2>/dev/null | head -n 1)
-    fi
-    if [ -z "$z" ] || [ ! -f "$z" ]; then
-        err "KERNEL=mix: belum ada hasil kernel. Build kernel dulu lewat menu kernel:"
-        echo "bash <(curl -fsSL https://raw.githubusercontent.com/kingD2N/Device_ingres_aospa/main/termius/kernel-menu.sh) build"
-        exit 1
-    fi
-    mkdir -p "$kdir" && rm -f "$kdir/Image"
-    unzip -o -q -j "$z" Image -d "$kdir" 2>/dev/null
-    [ -s "$kdir/Image" ] || { err "KERNEL=mix: di $z tidak ada file Image (bukan zip AnyKernel3?)"; exit 1; }
-    # Image arm64 punya tanda "ARMd" di byte 56
-    [ "$(dd if="$kdir/Image" bs=1 skip=56 count=4 2>/dev/null)" = "ARMd" ] \
-        || { err "KERNEL=mix: Image di $z bukan kernel arm64"; exit 1; }
-    MIX_IMAGE="$kdir/Image"
-    info "Kernel MIX: $(basename "$z")"
-    info "  $(strings "$MIX_IMAGE" | grep -a -m1 'Linux version' | cut -c1-110)"
-    [ -f "$(dirname "$z")/info-build.txt" ] && sed -n 's/^\(Kernel\|KernelSU\|Fitur\) *: /  /p' "$(dirname "$z")/info-build.txt" | cut -c1-110
-}
-# Salin zip $1 ke $2 dengan entri $3.. dibuang (python: server belum tentu punya 'zip')
-tf_copy_without() {
-    python3 - "$@" <<'PY'
-import shutil, sys, zipfile
-src, dst, drop = sys.argv[1], sys.argv[2], set(sys.argv[3:])
-with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, "w", allowZip64=True) as zo:
-    for i in zi.infolist():
-        if i.filename in drop:
-            continue
-        with zi.open(i) as a, zo.open(i, "w", force_zip64=True) as b:
-            shutil.copyfileobj(a, b, 1 << 20)
-PY
-}
-swap_kernel() {    # $1 = zip ROM hasil m bacon (ditimpa)
-    local zip="$1" p=out/target/product/ingres tf w key t
-    [ -n "$MIX_IMAGE" ] || return 0
-    info "Kernel MIX: ganti kernel di boot.img lalu buat ulang zip OTA (10-20 menit)"
-    tf=$(ls -t "$p"/obj/PACKAGING/target_files_intermediates/*-target_files*.zip 2>/dev/null | head -n 1)
-    [ -n "$tf" ] || { err "Kernel MIX: target-files tidak ditemukan, ROM tetap memakai kernel LineageOS"; return 1; }
-    for t in add_img_to_target_files ota_from_target_files; do
-        command -v "$t" >/dev/null || m "$t" >/dev/null 2>&1 || { err "Kernel MIX: alat $t tidak ada"; return 1; }
-    done
-    python3 -c "import zipfile,sys; sys.exit(0 if 'BOOT/kernel' in zipfile.ZipFile(sys.argv[1]).namelist() else 1)" "$tf" \
-        || { err "Kernel MIX: target-files tidak berisi BOOT/kernel, ROM tetap memakai kernel LineageOS"; return 1; }
-    w="$p/ingres-mix"; rm -rf "$w"; mkdir -p "$w"
-    tf_copy_without "$tf" "$w/tf.zip" BOOT/kernel IMAGES/boot.img IMAGES/vbmeta.img BOOTABLE_IMAGES/boot.img \
-        || { err "Kernel MIX: gagal menyalin target-files"; return 1; }
-    python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1],'a',allowZip64=True).write(sys.argv[2],'BOOT/kernel')" \
-        "$w/tf.zip" "$MIX_IMAGE" || { err "Kernel MIX: gagal memasang Image"; return 1; }
-    if ! add_img_to_target_files -a "$w/tf.zip" > "$w/add_img.log" 2>&1; then
-        err "Kernel MIX: membuat ulang boot.img/vbmeta.img gagal:"; tail -n 25 "$w/add_img.log"; return 1
-    fi
-    key=$(get_build_var DEFAULT_SYSTEM_DEV_CERTIFICATE 2>/dev/null)
-    [ -n "$key" ] || key=build/make/target/product/security/testkey
-    if ! ota_from_target_files -k "$key" "$w/tf.zip" "$w/ota.zip" > "$w/ota.log" 2>&1; then
-        err "Kernel MIX: membuat zip OTA gagal:"; tail -n 25 "$w/ota.log"; return 1
-    fi
-    mv -f "$w/ota.zip" "$zip"
-    unzip -o -q -j "$w/tf.zip" IMAGES/boot.img IMAGES/vbmeta.img -d "$p" 2>/dev/null
-    [ -x vendor/infinity/build/tools/generate_ota_info.sh ] \
-        && ./vendor/infinity/build/tools/generate_ota_info.sh "$zip" >/dev/null 2>&1
-    rm -f "$w/tf.zip"
-    ok "Kernel MIX terpasang di $(basename "$zip")"
-}
-
 # ---------------------------------------------- tanda tangan kingD2N
 # Semua ROM ingres ditandatangani kunci pribadi yang sama dengan LineageOS 24 (~/.ingres-keys).
 # Kunci dibuat sekali (oleh ROM mana pun yang dibuild pertama) lalu dipakai ulang semua ROM.
@@ -1042,7 +961,6 @@ do_build() {
     info "Varian build: $VARIANT"
     if [ "${DECRYPT:-1}" = 0 ]; then export TARGET_DECRYPTED_DATA=false; info "/data terenkripsi"; else export TARGET_DECRYPTED_DATA=true; info "/data tanpa enkripsi (decrypt)"; fi
     setup_signing
-    pick_mix_kernel
     if [ "${BOOTLOG:-0}" = 1 ] && [ -f "$SIGN_DEVMK" ]; then
         # logcatd (hanya ada di userdebug) menulis log sejak boot ke /data/misc/logd, tetap ada
         # setelah bootloop dan bisa diambil dari TWRP. Dibuang lagi oleh unpatch_signing.
@@ -1145,9 +1063,6 @@ BLEOF
     local p="out/target/product/ingres" zip name
     zip=$(ls -t "$p"/Project_Infinity-X-*.zip 2>/dev/null | grep -v target_files | head -n 1)
     [ -n "$zip" ] || { err "Build selesai tapi zip Project_Infinity-X-*.zip tidak ditemukan"; exit 1; }
-    if [ -n "$MIX_IMAGE" ] && ! swap_kernel "$zip"; then
-        err "ROM tetap jadi dengan kernel LineageOS. Flash zip AnyKernel3 kernel MIX sesudah ROM kalau mau."
-    fi
     name=$(basename "$zip")
     mkdir -p "$HASIL_DIR"
     cp "$zip" "$HASIL_DIR/$name"
