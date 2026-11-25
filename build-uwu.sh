@@ -20,6 +20,7 @@
 #                      bawaan: env server tidak disentuh
 #   VARIANT=user       user (rilis, default) / userdebug / eng
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
+#   DV_TMAX=800        batas terang Dolby Vision (nit) layar F4 GT (0 = setelan asli Sony)
 #   AOD_FADE_MS=500    lama AOD memudar sebelum layar mati, ms (0 = tanpa, perilaku asli)
 #   SIGN=0             kunci bawaan ROM (default: tanda tangan kingD2N = kunci LineageOS, ~/.ingres-keys)
 #   INDO=0             jangan pasang terjemahan Bahasa Indonesia (default: dipasang)
@@ -109,7 +110,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' DV_TMAX='${DV_TMAX:-800}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}' RBE='${RBE:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -358,6 +359,7 @@ unpatch_per_app_refresh_rate() {
 }
 
 unpatch_source() {
+    unpatch_dv_cfg
     unpatch_aod_fade
     unpatch_signing
     unpatch_per_app_refresh_rate
@@ -442,7 +444,27 @@ PY
     fi
     return 0
 }
+# Dolby Vision: setelan layar POCO F4 GT. dolby_vision.cfg bawaan hardware/dolby berasal dari panel
+# Sony (Tmax 589.6 nit, warna panel Sony) sehingga konten HDR tinggi diredupkan berlebihan.
+# Diganti batas layar F4 GT: AMOLED 800 nit (HBM), hitam ~0, gamut DCI-P3 (diuji di HP 25/11/2026).
+DV_TMAX="${DV_TMAX:-800}"
+DV_CFG=hardware/dolby/proprietary/vendor/etc/dolby_vision.cfg
+unpatch_dv_cfg() {
+    [ -d hardware/dolby/.git ] || [ -f hardware/dolby/.git ] || return 0
+    git -C hardware/dolby checkout -q -- proprietary/vendor/etc/dolby_vision.cfg 2>/dev/null
+    return 0
+}
+fix_dv_cfg() {
+    [ -f "$DV_CFG" ] || return 0
+    [ "$DV_TMAX" = 0 ] && return 0
+    sed -i -e "s/^Tmax = .*/Tmax = $DV_TMAX/" \
+        -e 's/^Tmin = .*/Tmin = 0.005/' \
+        -e 's/^TPrimaries = .*/TPrimaries = 0.680 0.320 0.265 0.690 0.150 0.060 0.3127 0.3290/' "$DV_CFG"
+    grep -q "^Tmax = $DV_TMAX\$" "$DV_CFG" && info "Tambalan: Dolby Vision memakai batas layar POCO F4 GT ($DV_TMAX nit, DCI-P3)"
+    return 0
+}
 patch_source() {
+    fix_dv_cfg
     fix_aod_fade
     fix_per_app_refresh_rate
     add_indonesian
