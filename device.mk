@@ -13,6 +13,8 @@ $(call inherit-product, vendor/xiaomi/ingres/ingres-vendor.mk)
 # Paket tambahan: GameKeys, LED, Dolby Lunaris, JamesDSP, MIUI Camera
 # (vendor/ingres/addons, lihat local manifest)
 INGRES_ADDONS_ROM := los
+# Ingres Parts (uji coba, baru di EvoX)
+INGRES_ADDONS_PARTS := true
 $(call inherit-product-if-exists, vendor/ingres/addons/addons.mk)
 
 # SELinux Treble Labeling (Android 17): label app GameKeys/MIUI Camera/Dolby dari
