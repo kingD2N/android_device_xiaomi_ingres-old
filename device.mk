@@ -4,6 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+# Ingres Parts (baterai, thermal, mode game, layar & sentuhan, speaker). Diset sebelum
+# sm8450-common: sakelar "High touch polling rate" di Setelan dipindah ke Ingres Parts (lihat common.mk).
+INGRES_ADDONS_PARTS := true
+
 # Inherit from xiaomi sm8450-common
 $(call inherit-product, device/xiaomi/sm8450-common/common.mk)
 
