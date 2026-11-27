@@ -48,4 +48,6 @@ DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += $(DEVICE_PATH)/vintf/lineage_hals_
 
 # Paket tambahan (GameKeys, LED, Dolby Lunaris, JamesDSP, MIUI Camera)
 INGRES_ADDONS_ROM := los
+# Ingres Parts
+INGRES_ADDONS_PARTS := true
 -include vendor/ingres/addons/BoardConfigAddons.mk
