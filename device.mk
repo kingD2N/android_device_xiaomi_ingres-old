@@ -4,6 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+# Ingres Parts (uji coba, baru di EvoX). Diset sebelum sm8450-common: sakelar "High touch
+# polling rate" di Setelan dipindah ke Ingres Parts (lihat common.mk).
+INGRES_ADDONS_PARTS := true
+
 # Inherit from xiaomi sm8450-common
 $(call inherit-product, device/xiaomi/sm8450-common/common.mk)
 
@@ -13,8 +17,6 @@ $(call inherit-product, vendor/xiaomi/ingres/ingres-vendor.mk)
 # Paket tambahan: GameKeys, LED, Dolby Lunaris, JamesDSP, MIUI Camera
 # (vendor/ingres/addons, lihat local manifest)
 INGRES_ADDONS_ROM := los
-# Ingres Parts (uji coba, baru di EvoX)
-INGRES_ADDONS_PARTS := true
 $(call inherit-product-if-exists, vendor/ingres/addons/addons.mk)
 
 # SELinux Treble Labeling (Android 17): label app GameKeys/MIUI Camera/Dolby dari
