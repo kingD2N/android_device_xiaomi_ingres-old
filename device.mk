@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-# Ingres Parts (uji coba, baru di EvoX). Diset sebelum sm8450-common: sakelar "High touch
-# polling rate" di Setelan dipindah ke Ingres Parts (lihat common.mk).
+# Ingres Parts (baterai, thermal, mode game, layar & sentuhan, speaker). Diset sebelum
+# sm8450-common: sakelar "High touch polling rate" di Setelan dipindah ke Ingres Parts (lihat common.mk).
 INGRES_ADDONS_PARTS := true
 
 # Inherit from xiaomi sm8450-common
