@@ -23,6 +23,8 @@
 #   DECRYPT=0          /data terenkripsi seperti biasa (default: decrypt)
 #   DV_TMAX=800        batas terang Dolby Vision (nit) layar F4 GT (0 = setelan asli Sony)
 #   AOD_FADE_MS=500    lama AOD memudar sebelum layar mati, ms (0 = tanpa, perilaku asli)
+#   GAMESPACE=1        tetap pasang Game Space bawaan EvoX (default: dibuang, mode game
+#                      diurus Ingres Parts)
 #   SIGN=0             kunci bawaan ROM (default: tanda tangan kingD2N = kunci LineageOS, ~/.ingres-keys)
 #   GOFILE=0           jangan upload hasil ke GoFile (default: upload otomatis)
 #   GOFILE_TOKEN=xxx   token akun GoFile (opsional)
@@ -105,7 +107,7 @@ if [ -z "${TMUX:-}" ] && [ -z "${STY:-}" ] && [ "$CMD" != "clean" ] && [ "$CMD" 
         err "Sesi '$SESSION' sudah ada (satu build per akun). Masuk dengan: byobu attach -t $SESSION"
         exit 1
     fi
-    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' PIXEL_LAUNCHER='${PIXEL_LAUNCHER:-0}' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' DV_TMAX='${DV_TMAX:-800}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
+    envs="SRC='$SRC' VARIANT='$VARIANT' GAPPS='${GAPPS:-1}' PIXEL_LAUNCHER='${PIXEL_LAUNCHER:-0}' GOOGLE_INSTALLER='${GOOGLE_INSTALLER:-0}' GAMESPACE='${GAMESPACE:-0}' DECRYPT='${DECRYPT:-1}' SIGN='${SIGN:-1}' KEYS_DIR='${KEYS_DIR:-}' AOD_FADE_MS='${AOD_FADE_MS:-500}' DV_TMAX='${DV_TMAX:-800}' GOFILE='${GOFILE:-1}' GOFILE_TOKEN='${GOFILE_TOKEN:-}' JOBS='${JOBS:-}'"
     byobu new-session -d -s "$SESSION" "$envs bash '$SCRIPT' $CMD; echo; echo 'Selesai. Tekan Enter untuk menutup.'; read"
     ok "Build berjalan di sesi byobu '$SESSION' (aman kalau Termius ditutup)."
     echo "   Lihat layar build : byobu attach -t $SESSION   (keluar lagi: F6)"
@@ -361,6 +363,25 @@ drop_google_installer() {
     return 0
 }
 
+# Game Space bawaan EvoX (io.chaldeaprjkt.gamespace) dibuang supaya mode game hanya diurus
+# Ingres Parts: keduanya mematikan notifikasi pop-up & kecerahan otomatis untuk game yang sama,
+# dan urutan pengembaliannya bisa meninggalkan nilai 0. Aman tanpa aplikasinya: GameSpaceService
+# di framework EvoX hanya mencatat peringatan bila layanan Game Space tidak ada, dan menu Game Space
+# di Setelan tersembunyi sendiri (GameSpaceController -> UNSUPPORTED_ON_DEVICE).
+# GAMESPACE=1 = tetap dipasang.
+EVO_PKGS_MK=vendor/evolution/config/evolution.mk
+drop_gamespace() {
+    [ "${GAMESPACE:-0}" = 1 ] && return 0
+    [ -f "$EVO_PKGS_MK" ] || return 0
+    if grep -q '^[[:space:]]*GameSpace[[:space:]]*\\$' "$EVO_PKGS_MK"; then
+        sed -i '/^[[:space:]]*GameSpace[[:space:]]*\\$/d' "$EVO_PKGS_MK"
+        info "Tambalan: Game Space bawaan dibuang, mode game diurus Ingres Parts"
+    elif grep -qw 'GameSpace' "$EVO_PKGS_MK"; then
+        err "Game Space tidak bisa dibuang otomatis (susunan $EVO_PKGS_MK berubah), dilewati"
+    fi
+    return 0
+}
+
 unpatch_source() {
     unpatch_dv_cfg
     unpatch_aod_fade
@@ -376,6 +397,7 @@ unpatch_source() {
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
     git -C packages/resources/apps checkout -q -- res/values/strings.xml 2>/dev/null || true
+    git -C vendor/evolution checkout -q -- config/evolution.mk 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
         git -C "$L3_DIR" apply -R "$L3_PATCH" || true
     fi
@@ -527,6 +549,7 @@ patch_source() {
     fix_pixel_launcher
     fix_ambient_streaming
     fix_omnijaws_strings
+    drop_gamespace
 }
 
 # ------------------------------------------------------------------ sync
