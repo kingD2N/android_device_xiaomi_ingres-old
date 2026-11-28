@@ -375,6 +375,7 @@ unpatch_source() {
     done
     git -C hardware/qcom-caf/sm8450/display checkout -q -- composer/hwc_display.cpp 2>/dev/null || true
     git -C vendor/xiaomi/gamekey checkout -q -- third_party/rust daemon/src 2>/dev/null || true
+    git -C packages/resources/apps checkout -q -- res/values/strings.xml 2>/dev/null || true
     if [ -f "$L3_PATCH" ] && git -C "$L3_DIR" apply --check -R "$L3_PATCH" 2>/dev/null; then
         git -C "$L3_DIR" apply -R "$L3_PATCH" || true
     fi
@@ -471,6 +472,51 @@ fix_dv_cfg() {
     grep -q "^Tmax = $DV_TMAX\$" "$DV_CFG" && info "Tambalan: Dolby Vision memakai batas layar POCO F4 GT ($DV_TMAX nit, DCI-P3)"
     return 0
 }
+# OmniJaws (cuaca) EvoX kadang lebih dulu memakai string baru daripada packages/resources/apps.
+# 28 Nov 2026: tab per jam, notifikasi prakiraan, galat API key -> build gagal "unresolved
+# reference R.string.omnijaws_...". String yang belum ada ditambahkan ke resources (teks Inggris
+# dari crDroid, asal commit-nya); dilewati otomatis bila EvoX sudah memperbaikinya.
+OJ_DIR=packages/services/OmniJaws
+OJ_RES_DIR=packages/resources/apps/res/values
+omnijaws_string_lines() {
+    cat <<'OJEOF'
+    <string name="omnijaws_category_notifications">Notifications</string>
+    <string name="omnijaws_channel_forecast">Daily forecast</string>
+    <string name="omnijaws_channel_ongoing">Current weather</string>
+    <string name="omnijaws_error_api_key_invalid">The API key was rejected</string>
+    <string name="omnijaws_error_api_key_invalid_summary">Check the API key and its plan in Settings, or choose another provider.</string>
+    <string name="omnijaws_error_rate_limited">Too many weather requests</string>
+    <string name="omnijaws_error_rate_limited_summary">The weather provider is limiting requests. Try again later.</string>
+    <string name="omnijaws_hourly_tab_precipitation">Precipitation</string>
+    <string name="omnijaws_hourly_tab_temperature">Temperature</string>
+    <string name="omnijaws_notification_precip_chance">%1$d%% chance of precipitation</string>
+    <string name="omnijaws_notify_forecast_summary">Today\'s forecast in the morning and tomorrow\'s in the evening</string>
+    <string name="omnijaws_notify_forecast_title">Daily forecast</string>
+    <string name="omnijaws_notify_ongoing_summary">Show the current weather in the notification shade</string>
+    <string name="omnijaws_notify_ongoing_title">Persistent notification</string>
+OJEOF
+}
+fix_omnijaws_strings() {
+    [ -d "$OJ_DIR" ] && [ -f "$OJ_RES_DIR/strings.xml" ] || return 0
+    local k line add="" names="" f="$OJ_RES_DIR/strings.xml" tmp
+    for k in $(grep -rhoE 'R\.string\.omnijaws_[a-z0-9_]+' "$OJ_DIR" --include=*.kt --include=*.java | sed 's/^R\.string\.//' | sort -u); do
+        grep -rqs "name=\"$k\"" "$OJ_RES_DIR" "$OJ_DIR/app/src/main/res/values" && continue
+        line=$(omnijaws_string_lines | grep -F "name=\"$k\"")
+        # string baru lain yang belum dikenal: teks dari namanya, supaya build tetap jalan
+        [ -n "$line" ] || line="    <string name=\"$k\">$(echo "${k#omnijaws_}" | tr '_' ' ')</string>"
+        add="$add$line"$'\n'
+        names="$names ${k#omnijaws_}"
+    done
+    [ -n "$add" ] || return 0
+    tmp=$(mktemp)
+    grep -v '^</resources>' "$f" > "$tmp"
+    printf '%s' "$add" >> "$tmp"
+    echo '</resources>' >> "$tmp"
+    cat "$tmp" > "$f"
+    rm -f "$tmp"
+    info "Tambalan: string OmniJaws yang belum ada di resources EvoX:$names"
+}
+
 patch_source() {
     fix_dv_cfg
     fix_aod_fade
@@ -480,6 +526,7 @@ patch_source() {
     fix_package_installer
     fix_pixel_launcher
     fix_ambient_streaming
+    fix_omnijaws_strings
 }
 
 # ------------------------------------------------------------------ sync
